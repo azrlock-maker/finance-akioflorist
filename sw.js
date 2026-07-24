@@ -1,4 +1,4 @@
-const CACHE_NAME = 'papan-bunga-finance-v2';
+const CACHE_NAME = 'papan-bunga-finance-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -16,6 +16,7 @@ const ASSETS_TO_CACHE = [
   './js/modules/jadwal.js',
   './js/modules/laporan.js',
   './js/modules/pengaturan.js',
+  './data_initial.json',
   'https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js'
