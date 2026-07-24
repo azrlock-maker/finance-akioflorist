@@ -1,88 +1,130 @@
-// Dashboard Module
+// Dashboard & Statistik Module (Matching Desktop App UI & Logic)
+
+let dashboardSelectedMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+let dashboardSelectedYear = String(new Date().getFullYear());
+
+const monthNamesMap = {
+  "01": "Januari", "02": "Februari", "03": "Maret", "04": "April",
+  "05": "Mei", "06": "Juni", "07": "Juli", "08": "Agustus",
+  "09": "September", "10": "Oktober", "11": "November", "12": "Desember"
+};
+
 async function renderDashboardModule() {
   const container = document.getElementById('view-dashboard');
   if (!container) return;
 
   const now = new Date();
-  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const todayStr = now.toISOString().split('T')[0];
 
   const allPesanan = await db.pesanan.toArray();
   const allKeuangan = await db.keuangan.toArray();
 
-  // Hitung Omset Bulan Ini & Total Pesanan
-  let omsetBulanIni = 0;
-  let totalPesananBulanIni = 0;
-  
-  allPesanan.forEach(p => {
-    if (p.tanggal && p.tanggal.startsWith(currentMonthStr)) {
-      omsetBulanIni += (p.harga || 0);
-      totalPesananBulanIni += 1;
-    }
-  });
+  const monthPattern = `${dashboardSelectedYear}-${dashboardSelectedMonth}`;
+  const yearPattern = `${dashboardSelectedYear}`;
 
-  // Hitung Kas Masuk & Kas Keluar & Saldo Kas
-  let totalPemasukan = 0;
-  let totalPengeluaran = 0;
+  // 1. Total Papan Bulan Ini
+  const totalPapanBulan = allPesanan.filter(p => p.tanggal && p.tanggal.startsWith(monthPattern)).length;
+
+  // 2. Total Papan Tahun Ini
+  const totalPapanTahun = allPesanan.filter(p => p.tanggal && p.tanggal.startsWith(yearPattern)).length;
+
+  // 3. Total Pemasukan Bulan Ini
+  let totalPemasukanBulan = 0;
   allKeuangan.forEach(k => {
-    if (k.jenis_transaksi === 'Pemasukan') {
-      totalPemasukan += (k.nominal || 0);
-    } else if (k.jenis_transaksi === 'Pengeluaran') {
-      totalPengeluaran += (k.nominal || 0);
+    if (k.jenis_transaksi === 'Pemasukan' && k.tanggal && k.tanggal.startsWith(monthPattern)) {
+      totalPemasukanBulan += (k.nominal || 0);
     }
   });
-  const saldoKas = totalPemasukan - totalPengeluaran;
 
-  // Hitung Total Hutang Pelanggan
-  const rekapHutang = await dbGetRekapHutangPelanggan();
-  const totalHutang = rekapHutang.reduce((acc, h) => acc + h.total_hutang, 0);
+  // 4. Total Pengeluaran Bulan Ini
+  let totalPengeluaranBulan = 0;
+  allKeuangan.forEach(k => {
+    if (k.jenis_transaksi === 'Pengeluaran' && k.tanggal && k.tanggal.startsWith(monthPattern)) {
+      totalPengeluaranBulan += (k.nominal || 0);
+    }
+  });
+
+  // 5. Keuntungan Bersih
+  const keuntunganBersih = totalPemasukanBulan - totalPengeluaranBulan;
 
   // Pesanan Hari Ini yang Harus Diantar (Alert)
   const pesananHariIni = allPesanan.filter(p => p.tanggal_antar === todayStr && p.status_proses !== 'Papan Di Antar');
 
-  // Format Rupiah Helper
-  const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
+  const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
 
   let html = `
     <!-- Header Banner / Notification Alert -->
     ${pesananHariIni.length > 0 ? `
       <div class="alert-banner">
         <div>
-          <strong>📢 PENGINGAT PENGANTARAN HARI INI!</strong>
+          <strong>📢 PERINGATAN PENGANTARAN HARI INI!</strong>
           <p style="font-size:0.85rem; margin-top:0.25rem;">Ada <b>${pesananHariIni.length} pesanan</b> yang harus diantar hari ini. Segera siapkan armada!</p>
         </div>
-        <button class="btn btn-warning btn-sm" onclick="switchView('jadwal')">Lihat Jadwal</button>
+        <button class="btn btn-warning btn-sm" onclick="switchView('jadwal')">Lihat Jadwal Armada</button>
       </div>
     ` : ''}
 
-    <!-- Stat Widgets -->
-    <div class="grid-stats">
+    <!-- Top Filter Frame -->
+    <div class="card" style="margin-bottom: 1.25rem; padding: 1rem 1.5rem;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+        <div style="font-size:1.1rem; font-weight:700;">📊 Dashboard & Statistik Overview</div>
+        <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+          <label style="font-weight:600; font-size:0.85rem; color:var(--text-muted);">Bulan:</label>
+          <select id="dash-filter-bulan" class="form-control" style="width:130px;" onchange="onDashboardFilterChange()">
+            ${Object.keys(monthNamesMap).map(m => `
+              <option value="${m}" ${m === dashboardSelectedMonth ? 'selected' : ''}>${monthNamesMap[m]}</option>
+            `).join('')}
+          </select>
+
+          <label style="font-weight:600; font-size:0.85rem; color:var(--text-muted);">Tahun:</label>
+          <select id="dash-filter-tahun" class="form-control" style="width:110px;" onchange="onDashboardFilterChange()">
+            ${Array.from({length: 15}, (_, i) => 2020 + i).map(y => `
+              <option value="${y}" ${String(y) === dashboardSelectedYear ? 'selected' : ''}>${y}</option>
+            `).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5 Summary Cards (Exact match Desktop App) -->
+    <div class="grid-stats" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
       <div class="stat-card">
         <div class="stat-icon blue">📦</div>
         <div class="stat-info">
-          <div class="label">Pesanan Bulan Ini</div>
-          <div class="value">${totalPesananBulanIni} Papan</div>
+          <div class="label">Total Papan (Bulan Ini)</div>
+          <div class="value">${totalPapanBulan} Papan</div>
         </div>
       </div>
+
       <div class="stat-card">
-        <div class="stat-icon green">💰</div>
+        <div class="stat-icon green">🏆</div>
         <div class="stat-info">
-          <div class="label">Omset Bulan Ini</div>
-          <div class="value">${formatRp(omsetBulanIni)}</div>
+          <div class="label">Total Papan (Tahun Ini)</div>
+          <div class="value">${totalPapanTahun} Papan</div>
         </div>
       </div>
+
       <div class="stat-card">
-        <div class="stat-icon purple">💵</div>
+        <div class="stat-icon amber">⚖️</div>
         <div class="stat-info">
-          <div class="label">Saldo Kas Utama</div>
-          <div class="value">${formatRp(saldoKas)}</div>
+          <div class="label">Keuntungan Bersih</div>
+          <div class="value" style="color:${keuntunganBersih >= 0 ? '#34d399' : '#f87171'};">${formatRp(keuntunganBersih)}</div>
         </div>
       </div>
+
       <div class="stat-card">
-        <div class="stat-icon red">⚠️</div>
+        <div class="stat-icon green">📥</div>
         <div class="stat-info">
-          <div class="label">Sisa Piutang/Hutang</div>
-          <div class="value">${formatRp(totalHutang)}</div>
+          <div class="label">Pemasukan (Bulan Ini)</div>
+          <div class="value">${formatRp(totalPemasukanBulan)}</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon red">📤</div>
+        <div class="stat-info">
+          <div class="label">Pengeluaran (Bulan Ini)</div>
+          <div class="value">${formatRp(totalPengeluaranBulan)}</div>
         </div>
       </div>
     </div>
@@ -128,7 +170,7 @@ async function renderDashboardModule() {
 
       <div class="card" style="margin-bottom:0;">
         <div class="card-header">
-          <div class="card-title">📊 Visualisasi Kas</div>
+          <div class="card-title">🥧 Distribusi Keuangan (${monthNamesMap[dashboardSelectedMonth]} ${dashboardSelectedYear})</div>
         </div>
         <div style="height: 250px; position:relative;">
           <canvas id="dashboardChart"></canvas>
@@ -139,17 +181,31 @@ async function renderDashboardModule() {
 
   container.innerHTML = html;
 
-  // Render Chart.js
+  // Render Chart.js Pie Chart (Matching Desktop App)
   setTimeout(() => {
     const ctx = document.getElementById('dashboardChart');
     if (ctx && typeof Chart !== 'undefined') {
+      let labels = ['Keuntungan', 'Pengeluaran'];
+      let chartData = [Math.max(0, keuntunganBersih), totalPengeluaranBulan];
+      let bgColors = ['#10b981', '#ef4444'];
+
+      if (totalPengeluaranBulan > totalPemasukanBulan) {
+        labels = ['Pemasukan', 'Defisit/Rugi'];
+        chartData = [totalPemasukanBulan, totalPengeluaranBulan - totalPemasukanBulan];
+        bgColors = ['#3b82f6', '#ef4444'];
+      } else if (totalPemasukanBulan === 0 && totalPengeluaranBulan === 0) {
+        labels = ['Belum Ada Data'];
+        chartData = [1];
+        bgColors = ['#64748b'];
+      }
+
       new Chart(ctx, {
-        type: 'doughnut',
+        type: 'pie',
         data: {
-          labels: ['Total Pemasukan', 'Total Pengeluaran'],
+          labels: labels,
           datasets: [{
-            data: [totalPemasukan, totalPengeluaran],
-            backgroundColor: ['#10b981', '#ef4444'],
+            data: chartData,
+            backgroundColor: bgColors,
             borderWidth: 0
           }]
         },
@@ -163,4 +219,12 @@ async function renderDashboardModule() {
       });
     }
   }, 100);
+}
+
+function onDashboardFilterChange() {
+  const m = document.getElementById('dash-filter-bulan');
+  const y = document.getElementById('dash-filter-tahun');
+  if (m) dashboardSelectedMonth = m.value;
+  if (y) dashboardSelectedYear = y.value;
+  renderDashboardModule();
 }

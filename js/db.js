@@ -10,8 +10,25 @@ db.version(1).stores({
   pengaturan: 'id'
 });
 
-// Seed data pengaturan default jika belum ada
+// Seed data pengaturan & auto-import data_initial.json jika database kosong
 async function seedDefaultSettings() {
+  const pesananCount = await db.pesanan.count();
+  if (pesananCount === 0) {
+    try {
+      const res = await fetch('./data_initial.json');
+      if (res.ok) {
+        const initialData = await res.json();
+        if (initialData && initialData.pesanan) {
+          await dbImportFullBackupJSON(initialData);
+          console.log('[DB] Auto-loaded initial database from data_initial.json');
+          return;
+        }
+      }
+    } catch (e) {
+      console.log('[DB] No initial json file found, seeding default settings.');
+    }
+  }
+
   const count = await db.pengaturan.count();
   if (count === 0) {
     await db.pengaturan.add({
@@ -110,7 +127,6 @@ async function dbUpdatePesanan(id, data) {
     tanggal_antar: data.tanggal_antar || tanggal
   });
 
-  // Update kas jika ada no_nota
   if (no_nota) {
     const kasRows = await db.keuangan
       .filter(k => k.no_nota === no_nota && k.keterangan && k.keterangan.startsWith('Pembayaran Pesanan'))
@@ -261,7 +277,7 @@ async function dbExportFullBackupJSON() {
 
 // Import Full Data JSON dari Drive Sync / Restore
 async function dbImportFullBackupJSON(jsonStr) {
-  const data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+  const data = typeof jsonStr === 'object' ? jsonStr : JSON.parse(jsonStr);
   if (!data || !data.pesanan || !data.keuangan) {
     throw new Error('Format file backup data tidak valid!');
   }
