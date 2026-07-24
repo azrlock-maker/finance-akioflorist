@@ -1,4 +1,4 @@
-// Dashboard & Statistik Module (Matching Desktop App UI & Logic)
+// Dashboard & Statistik Module (With Pesanan Terhutang Table)
 
 let dashboardSelectedMonth = String(new Date().getMonth() + 1).padStart(2, '0');
 let dashboardSelectedYear = String(new Date().getFullYear());
@@ -50,6 +50,10 @@ async function renderDashboardModule() {
   // Pesanan Hari Ini yang Harus Diantar (Alert)
   const pesananHariIni = allPesanan.filter(p => p.tanggal_antar === todayStr && p.status_proses !== 'Papan Di Antar');
 
+  // Filter Pesanan Terhutang (Belum Lunas)
+  const pesananTerhutang = allPesanan.filter(p => !p.status_lunas && (p.dibayar || 0) < (p.harga || 0));
+  pesananTerhutang.sort((a, b) => ((b.harga || 0) - (b.dibayar || 0)) - ((a.harga || 0) - (a.dibayar || 0)));
+
   const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
 
   let html = `
@@ -86,7 +90,7 @@ async function renderDashboardModule() {
       </div>
     </div>
 
-    <!-- 5 Summary Cards (Exact match Desktop App) -->
+    <!-- 5 Summary Cards -->
     <div class="grid-stats" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
       <div class="stat-card">
         <div class="stat-icon blue">📦</div>
@@ -135,34 +139,34 @@ async function renderDashboardModule() {
       <button class="btn btn-secondary" onclick="openKeuanganModal()"><span class="icon">💸</span> Catat Transaksi Kas</button>
     </div>
 
-    <!-- Recent Orders Table & Charts Grid -->
+    <!-- Tabel Pesanan Terhutang & Charts Grid -->
     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:1.5rem;">
       <div class="card" style="margin-bottom:0;">
         <div class="card-header">
-          <div class="card-title">📦 Pesanan Terbaru</div>
-          <button class="btn btn-secondary btn-sm" onclick="switchView('pesanan')">Lihat Semua</button>
+          <div class="card-title">⚠️ Daftar Pesanan Terhutang / Belum Lunas</div>
+          <button class="btn btn-secondary btn-sm" onclick="switchView('hutang')">Rekap Hutang</button>
         </div>
         <div class="table-responsive">
-          <table class="data-table">
+          <table class="data-table" style="min-width:100%;">
             <thead>
               <tr>
-                <th>Pemesan</th>
-                <th>Jenis</th>
-                <th>Tanggal Antar</th>
-                <th>Status Bayar</th>
+                <th>Pemesan & Nota</th>
+                <th>Total Harga</th>
+                <th>Sisa Hutang</th>
+                <th style="text-align:right;">Pelunasan</th>
               </tr>
             </thead>
             <tbody>
-              ${allPesanan.slice(-5).reverse().map(p => `
+              ${pesananTerhutang.length > 0 ? pesananTerhutang.slice(0, 5).map(p => `
                 <tr>
                   <td><b>${p.nama_pemesan || '-'}</b><br><small style="color:var(--text-muted);">${p.no_nota || ''}</small></td>
-                  <td>${p.jenis_papan || '-'}</td>
-                  <td>${p.tanggal_antar || p.tanggal || '-'}</td>
-                  <td>
-                    ${p.status_lunas ? '<span class="badge badge-lunas">LUNAS</span>' : '<span class="badge badge-belum">BELUM LUNAS</span>'}
+                  <td>${formatRp(p.harga)}</td>
+                  <td><b style="color:var(--danger);">${formatRp(p.harga - p.dibayar)}</b></td>
+                  <td style="text-align:right;">
+                    <button class="btn btn-success btn-sm" style="font-size:0.75rem; padding:0.2rem 0.5rem;" onclick="handleTandaiLunas(${p.id})">✔ Lunas</button>
                   </td>
                 </tr>
-              `).join('') || '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Belum ada data pesanan</td></tr>'}
+              `).join('') : '<tr><td colspan="4" style="text-align:center; padding:1.5rem; color:var(--success);">🎉 Tidak ada penunggakan hutang pesanan saat ini!</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -181,7 +185,7 @@ async function renderDashboardModule() {
 
   container.innerHTML = html;
 
-  // Render Chart.js Pie Chart (Matching Desktop App)
+  // Render Chart.js Pie Chart
   setTimeout(() => {
     const ctx = document.getElementById('dashboardChart');
     if (ctx && typeof Chart !== 'undefined') {
