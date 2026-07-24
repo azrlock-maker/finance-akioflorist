@@ -222,7 +222,7 @@ async function printNotaPesanan(id) {
   // Calculate HMAC Digital Signature
   const signature = await generateInvoiceDigitalSignature(p.no_nota, p.tanggal, p.nama_pemesan, p.harga);
 
-  // Generate QR Code URL (Gunakan website_url / Apps Script jika dikonfigurasi)
+  // Generate QR Code URL
   let targetUrl = config.website_url ? config.website_url.trim() : (window.location.origin + window.location.pathname);
   if (targetUrl && !targetUrl.startsWith('http')) {
     targetUrl = 'https://' + targetUrl;
@@ -375,31 +375,95 @@ async function printNotaPesanan(id) {
   window.print();
 }
 
-// === FUNGSI PERIKSA QR CODE VERIFIKASI DARI URL ===
+// === FUNGSI PERIKSA QR CODE VERIFIKASI STANDALONE DARI URL ===
 async function checkUrlInvoiceVerification() {
   const urlParams = new URLSearchParams(window.location.search);
   const notaParam = urlParams.get('nota');
   const signParam = urlParams.get('sign');
   const totalParam = urlParams.get('total');
+  const tglParam = urlParams.get('tgl');
 
   if (notaParam && signParam) {
-    const banner = document.getElementById('verification-banner');
-    if (!banner) return;
+    // Sembunyikan seluruh tampilan aplikasi utama
+    const appRoot = document.getElementById('app-root');
+    if (appRoot) appRoot.style.display = 'none';
 
-    banner.style.display = 'block';
-    banner.innerHTML = `
-      <div style="padding: 1.25rem; background: rgba(16, 185, 129, 0.15); border: 2px solid #10b981; border-radius: 12px; margin-bottom: 1.5rem;">
-        <h3 style="color: #34d399; margin-bottom: 0.5rem; display:flex; align-items:center; gap:0.5rem;">
-          <span>✅ VERIFIKASI KEASLIAN NOTA: SAH / VALID</span>
-        </h3>
-        <p style="font-size: 0.95rem; color: #f8fafc;">
-          Nota Pesanan <b>${notaParam}</b> dengan Signature Digital <code>SIGN: ${signParam}</code> telah terverifikasi resmi oleh sistem Akio Florist.
+    const config = await db.pengaturan.get(1) || {};
+    const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
+
+    // Tampilkan halaman verifikasi resmi berdiri sendiri (Standalone Verification Page)
+    let standalonePage = document.getElementById('standalone-verification-page');
+    if (!standalonePage) {
+      standalonePage = document.createElement('div');
+      standalonePage.id = 'standalone-verification-page';
+      document.body.appendChild(standalonePage);
+    }
+
+    standalonePage.style.display = 'flex';
+    standalonePage.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif;
+      display: flex; align-items: center; justify-content: center; padding: 1.5rem; box-sizing: border-box; z-index: 99999;
+    `;
+
+    standalonePage.innerHTML = `
+      <div style="background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 2rem; max-width: 500px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.5); text-align: center;">
+        <div style="width: 70px; height: 70px; background: rgba(16, 185, 129, 0.15); border: 2px solid #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem; font-size: 2.2rem; color: #34d399;">
+          🛡️
+        </div>
+
+        <h2 style="font-size: 1.3rem; font-weight: 800; color: #34d399; margin-bottom: 0.25rem; letter-spacing: -0.5px;">
+          VERIFIKASI KEASLIAN NOTA
+        </h2>
+        <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 1.5rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+          ${config.nama_toko || 'AKIO FLORIST'} - OFFICIAL VERIFIED
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 1.25rem; text-align: left; margin-bottom: 1.5rem; font-size: 0.9rem;">
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.6rem; margin-bottom: 0.6rem;">
+            <span style="color: #94a3b8;">Status Keaslian:</span>
+            <span style="color: #34d399; font-weight: 700;">✅ SAH & RESMI</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.6rem; margin-bottom: 0.6rem;">
+            <span style="color: #94a3b8;">Nota & Pemesan:</span>
+            <span style="font-weight: 700; color: #fff;">${notaParam}</span>
+          </div>
+          ${tglParam ? `
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.6rem; margin-bottom: 0.6rem;">
+              <span style="color: #94a3b8;">Tanggal:</span>
+              <span style="color: #60a5fa; font-weight: 600;">${tglParam}</span>
+            </div>
+          ` : ''}
+          ${totalParam ? `
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.6rem; margin-bottom: 0.6rem;">
+              <span style="color: #94a3b8;">Nilai Pesanan:</span>
+              <span style="color: #fbbf24; font-weight: 700;">${formatRp(parseFloat(totalParam))}</span>
+            </div>
+          ` : ''}
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: #94a3b8;">Digital Signature:</span>
+            <span style="font-family: monospace; font-size: 0.85rem; color: #a855f7; font-weight: 700;">SIGN: ${signParam}</span>
+          </div>
+        </div>
+
+        <p style="font-size: 0.78rem; color: #64748b; margin-bottom: 1.5rem; line-height: 1.4;">
+          * Nota pesanan ini telah terenkripsi secara resmi oleh sistem komputerisasi ${config.nama_toko || 'Akio Florist'}.
         </p>
-        ${totalParam ? `<p style="font-size: 0.9rem; color: #94a3b8; margin-top:0.25rem;">Nilai Pesanan: <b>Rp ${parseInt(totalParam).toLocaleString('id-ID')}</b></p>` : ''}
-        <button class="btn btn-secondary btn-sm" style="margin-top:0.75rem;" onclick="document.getElementById('verification-banner').style.display='none'">Tutup Verifikasi</button>
+
+        <button class="btn btn-secondary" style="width: 100%; border-radius: 10px;" onclick="openMainAppFromVerification()">
+          🚀 Buka Aplikasi Utama
+        </button>
       </div>
     `;
   }
+}
+
+function openMainAppFromVerification() {
+  const standalonePage = document.getElementById('standalone-verification-page');
+  if (standalonePage) standalonePage.style.display = 'none';
+
+  const appRoot = document.getElementById('app-root');
+  if (appRoot) appRoot.style.display = 'flex';
 }
 
 // Jalankan periksa verifikasi URL saat script dimuat

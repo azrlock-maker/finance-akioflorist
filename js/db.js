@@ -259,6 +259,47 @@ async function dbBayarLunasPelanggan(namaPelanggan) {
   }
 }
 
+// Bayar Cicilan / Sebagian Pelanggan
+async function dbBayarSebagianPelanggan(namaPelanggan, jumlahBayar) {
+  const targetNama = (namaPelanggan || '').trim().toUpperCase();
+  const allPesanan = await db.pesanan.toArray();
+  const unpaid = allPesanan
+    .filter(p => (p.nama_pemesan || '').trim().toUpperCase() === targetNama && (p.dibayar || 0) < (p.harga || 0))
+    .sort((a, b) => (a.tanggal || '').localeCompare(b.tanggal || ''));
+
+  const today = new Date().toISOString().split('T')[0];
+  let sisaBayar = parseFloat(jumlahBayar) || 0;
+
+  for (const row of unpaid) {
+    if (sisaBayar <= 0) break;
+
+    const dibayarSkrg = row.dibayar || 0;
+    const harga = row.harga || 0;
+    const kekurangan = harga - dibayarSkrg;
+
+    const tambah = Math.min(sisaBayar, kekurangan);
+    const totalBaru = dibayarSkrg + tambah;
+    const statusLunas = totalBaru >= harga ? 1 : 0;
+
+    await db.pesanan.update(row.id, {
+      dibayar: totalBaru,
+      status_lunas: statusLunas
+    });
+
+    if (tambah > 0) {
+      await db.keuangan.add({
+        tanggal: today,
+        jenis_transaksi: 'Pemasukan',
+        keterangan: `Cicilan Hutang ${targetNama} (Nota: ${row.no_nota})`,
+        nominal: tambah,
+        no_nota: row.no_nota
+      });
+    }
+
+    sisaBayar -= tambah;
+  }
+}
+
 // Export Full Data JSON untuk Backup / Drive Sync
 async function dbExportFullBackupJSON() {
   const pesanan = await db.pesanan.toArray();
