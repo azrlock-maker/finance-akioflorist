@@ -1,10 +1,30 @@
-// Hutang / Piutang Pelanggan Module (With Cicilan & Nota Gabungan Support)
+// Hutang / Piutang Pelanggan Module (With Days Counter, Cicilan & Nota Gabungan)
+
+function calculateHariTunggak(tglAwalStr) {
+  if (!tglAwalStr) return 0;
+  try {
+    const tglAwal = new Date(tglAwalStr);
+    const now = new Date();
+    const diffTime = now - tglAwal;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(0, diffDays);
+  } catch (e) {
+    return 0;
+  }
+}
 
 async function renderHutangModule() {
   const container = document.getElementById('view-hutang');
   if (!container) return;
 
-  const rekap = await dbGetRekapHutangPelanggan();
+  let rekap = await dbGetRekapHutangPelanggan();
+
+  // Urutkan berdasarkan pelanggan yang paling lama menunggak (hari_tunggak terbesar)
+  rekap.forEach(h => {
+    h.hari_tunggak = calculateHariTunggak(h.tgl_awal);
+  });
+  rekap.sort((a, b) => b.hari_tunggak - a.hari_tunggak);
+
   const totalHutangKeseluruhan = rekap.reduce((acc, h) => acc + h.total_hutang, 0);
   const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
 
@@ -22,8 +42,9 @@ async function renderHutangModule() {
           <thead>
             <tr>
               <th>Nama Pelanggan</th>
-              <th>Jumlah Order Menunggak</th>
-              <th>Sejak Tanggal</th>
+              <th>Tunggakan</th>
+              <th>Menunggak Sejak</th>
+              <th>Lama Menunggak</th>
               <th>Total Sisa Hutang</th>
               <th style="text-align:right;">Aksi Pelunasan & Nota</th>
             </tr>
@@ -34,22 +55,27 @@ async function renderHutangModule() {
                 <td><b>${h.nama}</b></td>
                 <td><span class="badge badge-belum">${h.total_tunggakan} Pesanan</span></td>
                 <td><small style="color:var(--text-muted);">${h.tgl_awal || '-'}</small></td>
+                <td>
+                  <span class="badge ${h.hari_tunggak > 30 ? 'badge-belum' : 'badge-siap'}">
+                    ⏳ ${h.hari_tunggak} Hari
+                  </span>
+                </td>
                 <td><b style="color:var(--danger); font-size:1rem;">${formatRp(h.total_hutang)}</b></td>
                 <td style="text-align:right;">
-                  <div style="display:inline-flex; gap:0.4rem; flex-wrap:wrap; justify-content:flex-end;">
+                  <div style="display:inline-flex; gap:0.35rem; flex-wrap:wrap; justify-content:flex-end;">
                     <button class="btn btn-warning btn-sm" onclick="handleBayarCicilanPelanggan('${h.nama.replace(/'/g, "\\'")}', ${h.total_hutang})">
-                      💳 Bayar Cicilan
+                      💰 Cicil
                     </button>
                     <button class="btn btn-success btn-sm" onclick="handleBayarLunasPelanggan('${h.nama.replace(/'/g, "\\'")}')">
-                      ✔ Pelunasan Total
+                      ✅ Bayar Lunas
                     </button>
-                    <button class="btn btn-secondary btn-sm" onclick="printNotaGabungan('${h.nama.replace(/'/g, "\\'")}')">
+                    <button class="btn btn-secondary btn-sm" title="Kwitansi Nota Gabungan" onclick="printNotaGabungan('${h.nama.replace(/'/g, "\\'")}')">
                       🧾 Nota Gabungan
                     </button>
                   </div>
                 </td>
               </tr>
-            `).join('') : `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">🎉 Selamat! Tidak ada penunggakan hutang pelanggan saat ini.</td></tr>`}
+            `).join('') : `<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">🎉 Selamat! Tidak ada penunggakan hutang pelanggan saat ini.</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -62,7 +88,7 @@ async function renderHutangModule() {
 // Handler Bayar Cicilan Pelanggan
 async function handleBayarCicilanPelanggan(namaPelanggan, totalHutang) {
   const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
-  const inputVal = prompt(`Masukkan Jumlah Pembayaran Cicilan (Rp) untuk "${namaPelanggan}":\n(Total Hutang: ${formatRp(totalHutang)})`, "");
+  const inputVal = prompt(`Masukkan Jumlah Pembayaran Cicilan (Rp) untuk "${namaPelanggan}":\n(Total Sisa Hutang: ${formatRp(totalHutang)})`, "");
 
   if (inputVal !== null && inputVal.trim() !== '') {
     const jumlah = parseFloat(inputVal.replace(/\./g, '').replace(/,/g, ''));
