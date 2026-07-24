@@ -19,20 +19,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Update UI status sync
   if (typeof updateSyncUI === 'function') updateSyncUI();
 
-  // Load Store Header Logo
-  loadHeaderStoreLogo();
+  // Load Store Header Logo & Nama Toko
+  loadHeaderStoreProfile();
 
   // Render initial view
   switchView('dashboard');
 });
 
-async function loadHeaderStoreLogo() {
+async function loadHeaderStoreProfile() {
   try {
     const config = await db.pengaturan.get(1);
-    if (config && config.logo_path) {
-      const logoBox = document.querySelector('.logo-box');
-      if (logoBox) {
-        logoBox.innerHTML = `<img src="${config.logo_path}" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">`;
+    if (config) {
+      if (config.nama_toko) {
+        const titleEl = document.querySelector('.logo-text h1');
+        if (titleEl) titleEl.innerText = config.nama_toko;
+        document.title = `${config.nama_toko} (Finance Pro)`;
+      }
+      if (config.tagline) {
+        const taglineEl = document.querySelector('.logo-text span');
+        if (taglineEl) taglineEl.innerText = config.tagline;
+      }
+      if (config.logo_path) {
+        const logoBox = document.querySelector('.logo-box');
+        if (logoBox) {
+          logoBox.innerHTML = `<img src="${config.logo_path}" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">`;
+        }
       }
     }
   } catch (e) {}

@@ -153,6 +153,11 @@ async function savePengaturanForm(e) {
   });
 
   alert('✅ Pengaturan toko, logo, dan link verifikasi berhasil disimpan!');
+
+  if (typeof loadHeaderStoreProfile === 'function') {
+    loadHeaderStoreProfile();
+  }
+
   renderPengaturanModule();
 }
 
