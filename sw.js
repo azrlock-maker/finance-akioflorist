@@ -1,4 +1,4 @@
-const CACHE_NAME = 'papan-bunga-finance-v1';
+const CACHE_NAME = 'papan-bunga-finance-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -17,7 +17,8 @@ const ASSETS_TO_CACHE = [
   './js/modules/laporan.js',
   './js/modules/pengaturan.js',
   'https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js',
-  'https://cdn.jsdelivr.net/npm/chart.js'
+  'https://cdn.jsdelivr.net/npm/chart.js',
+  'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js'
 ];
 
 self.addEventListener('install', (e) => {
@@ -45,20 +46,17 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Stale-while-revalidate strategy for maximum offline resilience
   e.respondWith(
     caches.match(e.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Fetch background update
         fetch(e.request).then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
             caches.open(CACHE_NAME).then((cache) => cache.put(e.request, networkResponse));
           }
-        }).catch(() => {/* Offline silent handle */});
+        }).catch(() => {});
         return cachedResponse;
       }
       return fetch(e.request).catch(() => {
-        // Fallback for html pages
         if (e.request.headers.get('accept').includes('text/html')) {
           return caches.match('./index.html');
         }
