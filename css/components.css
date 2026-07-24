@@ -65,6 +65,8 @@
   padding: 1.5rem;
   margin-bottom: 1.5rem;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .card-header {
@@ -84,14 +86,18 @@
   gap: 0.5rem;
 }
 
-/* Data Tables */
+/* Data Tables & Responsive Scrollable Container */
 .table-responsive {
   width: 100%;
-  overflow-x: auto;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 0.5rem;
+  display: block;
 }
 
 .data-table {
   width: 100%;
+  min-width: 920px; /* Forces 8 columns to expand so horizontal scrollbar appears on HP / small screens */
   border-collapse: collapse;
   text-align: left;
   font-size: 0.9rem;

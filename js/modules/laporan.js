@@ -1,4 +1,4 @@
-// Laporan & Statistik Module (100% Identical to Desktop App ui_laporan.py)
+// Laporan & Statistik Module (Line Chart & Exact Desktop Logic)
 
 let laporanSelectedYear = String(new Date().getFullYear());
 let laporanSelectedMonth = 'Semua';
@@ -49,7 +49,7 @@ async function renderLaporanModule() {
   // 4. Laba Bersih
   const labaBersihTotal = uangMasukTotal - pengeluaranTotal;
 
-  // Prepare Bar Chart Data
+  // Prepare Line Chart Data
   let chartLabels = [];
   let chartValues = [];
 
@@ -138,7 +138,7 @@ async function renderLaporanModule() {
       </div>
     </div>
 
-    <!-- 4 Summary Cards (Exact match Desktop App ui_laporan.py) -->
+    <!-- 4 Summary Cards -->
     <div class="grid-stats" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
       <div class="stat-card">
         <div class="stat-icon blue">📜</div>
@@ -173,10 +173,10 @@ async function renderLaporanModule() {
       </div>
     </div>
 
-    <!-- Bar Chart Grafik Section -->
+    <!-- Line Chart Grafik Section -->
     <div class="card">
       <div class="card-header">
-        <div class="card-title">📊 Grafik Statistik ${laporanSelectedMode} (${laporanSelectedMonth} ${laporanSelectedYear})</div>
+        <div class="card-title">📈 Grafik Line / Garis ${laporanSelectedMode} (${laporanSelectedMonth} ${laporanSelectedYear})</div>
       </div>
       <div style="height: 320px; position:relative;">
         <canvas id="laporanBarChart"></canvas>
@@ -186,21 +186,28 @@ async function renderLaporanModule() {
 
   container.innerHTML = html;
 
-  // Render Bar Chart via Chart.js
+  // Render Line Chart via Chart.js
   setTimeout(() => {
     const ctx = document.getElementById('laporanBarChart');
     if (ctx && typeof Chart !== 'undefined') {
-      const bgColors = chartValues.map(val => (val >= 0 ? '#10b981' : '#ef4444'));
+      const lineColor = laporanSelectedMode === 'Jumlah Order' ? '#3b82f6' : '#10b981';
+      const bgGradientColor = laporanSelectedMode === 'Jumlah Order' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)';
 
       new Chart(ctx, {
-        type: 'bar',
+        type: 'line',
         data: {
           labels: chartLabels.length > 0 ? chartLabels : ['Belum Ada Data'],
           datasets: [{
             label: laporanSelectedMode,
             data: chartValues.length > 0 ? chartValues : [0],
-            backgroundColor: laporanSelectedMode === 'Jumlah Order' ? '#3b82f6' : bgColors,
-            borderRadius: 6
+            borderColor: lineColor,
+            backgroundColor: bgGradientColor,
+            borderWidth: 3,
+            tension: 0.35,
+            fill: true,
+            pointBackgroundColor: lineColor,
+            pointRadius: 5,
+            pointHoverRadius: 7
           }]
         },
         options: {
