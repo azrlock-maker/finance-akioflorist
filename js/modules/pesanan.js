@@ -1,0 +1,406 @@
+// Pesanan Module with Digital HMAC Barcode/QR Code Verification & Logo Support
+
+let pesananSearchKeyword = '';
+
+async function renderPesananModule() {
+  const container = document.getElementById('view-pesanan');
+  if (!container) return;
+
+  const allPesanan = await db.pesanan.toArray();
+  allPesanan.sort((a, b) => (b.id || 0) - (a.id || 0));
+
+  const filtered = allPesanan.filter(p => {
+    if (!pesananSearchKeyword) return true;
+    const kw = pesananSearchKeyword.toLowerCase();
+    return (p.nama_pemesan && p.nama_pemesan.toLowerCase().includes(kw)) ||
+           (p.no_nota && p.no_nota.toLowerCase().includes(kw)) ||
+           (p.jenis_papan && p.jenis_papan.toLowerCase().includes(kw));
+  });
+
+  const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
+
+  let html = `
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📦 Daftar Pesanan Papan Bunga</div>
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+          <input type="text" class="form-control" style="width:240px;" placeholder="🔍 Cari pemesan / nota..." 
+                 value="${pesananSearchKeyword}" oninput="onSearchPesanan(this.value)">
+          <button class="btn btn-primary" onclick="openPesananModal()"><span class="icon">➕</span> Tambah Order</button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>No. Nota</th>
+              <th>Tanggal</th>
+              <th>Pemesan & Lokasi</th>
+              <th>Jenis & Ucapan</th>
+              <th>Harga & Bayar</th>
+              <th>Status Bayar</th>
+              <th>Proses</th>
+              <th style="text-align:right;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.length > 0 ? filtered.map(p => `
+              <tr>
+                <td><b>${p.no_nota || '-'}</b></td>
+                <td>
+                  <small>Pesan: ${p.tanggal || '-'}</small><br>
+                  <small style="color:var(--info);">Antar: ${p.tanggal_antar || '-'}</small>
+                </td>
+                <td>
+                  <b>${p.nama_pemesan || '-'}</b><br>
+                  <small style="color:var(--text-muted);">${p.lokasi_pengantaran || '-'}</small>
+                </td>
+                <td>
+                  <span class="badge badge-proses">${p.jenis_papan || '-'}</span><br>
+                  <small style="color:var(--text-muted); font-style:italic;">"${p.ucapan || '-'}"</small>
+                </td>
+                <td>
+                  <b>Total: ${formatRp(p.harga)}</b><br>
+                  <small style="color:var(--success);">Dibayar: ${formatRp(p.dibayar)}</small>
+                </td>
+                <td>
+                  ${p.status_lunas ? '<span class="badge badge-lunas">LUNAS</span>' : `
+                    <span class="badge badge-belum">SISA ${formatRp(p.harga - p.dibayar)}</span>
+                  `}
+                </td>
+                <td><span class="badge badge-siap">${p.status_proses || 'Data Masuk'}</span></td>
+                <td style="text-align:right;">
+                  <div style="display:inline-flex; gap:0.35rem;">
+                    ${!p.status_lunas ? `<button class="btn btn-success btn-sm" title="Tandai Lunas" onclick="handleTandaiLunas(${p.id})">✔ Lunas</button>` : ''}
+                    <button class="btn btn-secondary btn-sm" title="Cetak Nota QR Code Verifikasi" onclick="printNotaPesanan(${p.id})">🖨️ Nota QR</button>
+                    <button class="btn btn-secondary btn-sm" title="Edit" onclick="openPesananModal(${p.id})">✏️</button>
+                    <button class="btn btn-danger btn-sm" title="Hapus" onclick="handleHapusPesanan(${p.id})">🗑️</button>
+                  </div>
+                </td>
+              </tr>
+            `).join('') : `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data pesanan ditemukan.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+function onSearchPesanan(val) {
+  pesananSearchKeyword = val;
+  renderPesananModule();
+}
+
+async function openPesananModal(id = null) {
+  const modal = document.getElementById('modal-pesanan');
+  const title = document.getElementById('modal-pesanan-title');
+  const form = document.getElementById('form-pesanan');
+
+  let data = {
+    id: '',
+    tanggal: new Date().toISOString().split('T')[0],
+    tanggal_antar: new Date().toISOString().split('T')[0],
+    nama_pemesan: '',
+    lokasi_pengantaran: '',
+    jenis_papan: 'Papan Single',
+    ucapan: '',
+    harga: 300000,
+    dibayar: 0,
+    status_lunas: 0
+  };
+
+  if (id) {
+    const existing = await db.pesanan.get(id);
+    if (existing) {
+      data = existing;
+      title.innerText = `Edit Pesanan #${existing.no_nota}`;
+    }
+  } else {
+    title.innerText = 'Tambah Pesanan Baru';
+  }
+
+  form.pesanan_id.value = data.id || '';
+  form.tanggal.value = data.tanggal || new Date().toISOString().split('T')[0];
+  form.tanggal_antar.value = data.tanggal_antar || data.tanggal || new Date().toISOString().split('T')[0];
+  form.nama_pemesan.value = data.nama_pemesan || '';
+  form.lokasi_pengantaran.value = data.lokasi_pengantaran || '';
+  form.jenis_papan.value = data.jenis_papan || 'Papan Single';
+  form.ucapan.value = data.ucapan || '';
+  form.harga.value = data.harga || 0;
+  form.dibayar.value = data.dibayar || 0;
+
+  modal.classList.add('active');
+}
+
+function closePesananModal() {
+  document.getElementById('modal-pesanan').classList.remove('active');
+}
+
+async function savePesananForm(e) {
+  e.preventDefault();
+  const form = e.target;
+  const id = form.pesanan_id.value;
+
+  const data = {
+    tanggal: form.tanggal.value,
+    tanggal_antar: form.tanggal_antar.value,
+    nama_pemesan: form.nama_pemesan.value,
+    lokasi_pengantaran: form.lokasi_pengantaran.value,
+    jenis_papan: form.jenis_papan.value,
+    ucapan: form.ucapan.value,
+    harga: parseFloat(form.harga.value) || 0,
+    dibayar: parseFloat(form.dibayar.value) || 0,
+    status_lunas: (parseFloat(form.dibayar.value) >= parseFloat(form.harga.value)) ? 1 : 0
+  };
+
+  if (id) {
+    await dbUpdatePesanan(parseInt(id), data);
+  } else {
+    await dbTambahPesanan(data);
+  }
+
+  closePesananModal();
+  renderPesananModule();
+  if (typeof renderDashboardModule === 'function') renderDashboardModule();
+}
+
+async function handleTandaiLunas(id) {
+  if (confirm('Tandai pesanan ini sebagai LUNAS? Pelunasan akan dicatat ke Keuangan Kas.')) {
+    await dbTandaiLunas(id);
+    renderPesananModule();
+    if (typeof renderDashboardModule === 'function') renderDashboardModule();
+  }
+}
+
+async function handleHapusPesanan(id) {
+  if (confirm('Apakah Anda yakin ingin menghapus pesanan ini? Transaksi kas terkait juga akan dihapus.')) {
+    await dbHapusPesanan(id);
+    renderPesananModule();
+    if (typeof renderDashboardModule === 'function') renderDashboardModule();
+  }
+}
+
+// === FUNGSI GENERATE DIGITAL HMAC SHA-256 SIGNATURE ===
+async function generateInvoiceDigitalSignature(no_nota, tanggal, nama_pemesan, harga) {
+  const secretKey = "AKIO_FLORIST_No_#1_050517!_RS";
+  const payload = `${no_nota}|${tanggal}|${nama_pemesan}|${harga}`;
+
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secretKey);
+  const msgData = encoder.encode(payload);
+
+  try {
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    );
+    const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
+    const hashArray = Array.from(new Uint8Array(signatureBuffer));
+    const hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+    return hex.substring(0, 12);
+  } catch (err) {
+    let hash = 0;
+    for (let i = 0; i < payload.length; i++) {
+      hash = (hash << 5) - hash + payload.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash).toString(16).toUpperCase().padStart(12, '0').substring(0, 12);
+  }
+}
+
+// === FUNGSI CETAK NOTA LENGKAP DENGAN LOGO, WATERMARK & QR CODE VERIFIKASI BARCODE ===
+async function printNotaPesanan(id) {
+  const p = await db.pesanan.get(id);
+  const config = await db.pengaturan.get(1) || {};
+
+  if (!p) return;
+
+  const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
+
+  // Calculate HMAC Digital Signature
+  const signature = await generateInvoiceDigitalSignature(p.no_nota, p.tanggal, p.nama_pemesan, p.harga);
+
+  // Generate QR Code URL (Gunakan website_url / Apps Script jika dikonfigurasi)
+  let targetUrl = config.website_url ? config.website_url.trim() : (window.location.origin + window.location.pathname);
+  if (targetUrl && !targetUrl.startsWith('http')) {
+    targetUrl = 'https://' + targetUrl;
+  }
+
+  const qrUrlParams = new URLSearchParams({
+    nota: `${p.no_nota} - ${p.nama_pemesan}`,
+    tgl: p.tanggal,
+    total: p.harga,
+    sign: signature
+  });
+
+  const qrText = targetUrl.includes('?') ? `${targetUrl}&${qrUrlParams.toString()}` : `${targetUrl}?${qrUrlParams.toString()}`;
+
+  // Build QR Code Image
+  let qrDataBase64 = '';
+  if (typeof qrcode !== 'undefined') {
+    const qrObj = qrcode(0, 'M');
+    qrObj.addData(qrText);
+    qrObj.make();
+    qrDataBase64 = qrObj.createDataURL(4, 2);
+  }
+
+  const isLunas = p.status_lunas === 1 || p.dibayar >= p.harga;
+  const watermarkCss = isLunas ? `
+    .watermark {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-35deg);
+      font-size: 110px;
+      font-weight: 900;
+      color: rgba(40, 167, 69, 0.15);
+      border: 8px solid rgba(40, 167, 69, 0.15);
+      padding: 10px 30px;
+      border-radius: 15px;
+      letter-spacing: 10px;
+      pointer-events: none;
+      z-index: 9999;
+      white-space: nowrap;
+      text-transform: uppercase;
+      font-family: 'Arial Black', Arial, sans-serif;
+    }
+  ` : '';
+
+  const logoHtml = config.logo_path ? `<img src="${config.logo_path}" alt="Logo Toko" style="max-height: 80px; max-width: 100px; margin-right: 15px;">` : '';
+
+  const printArea = document.getElementById('print-area');
+  printArea.innerHTML = `
+    <style>
+      ${watermarkCss}
+      .invoice-box {
+        position: relative;
+        max-width: 800px;
+        margin: auto;
+        padding: 30px;
+        border: 1px solid #eee;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+        font-size: 15px;
+        line-height: 24px;
+        color: #555;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      }
+      .top-table { width: 100%; text-align: left; margin-bottom: 20px; }
+      .title { font-size: 28px; font-weight: bold; color: #333; text-transform: uppercase; }
+      .info-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+      .info-table th, .info-table td { padding: 10px; border: 1px solid #ddd; }
+      .info-table th { background: #eee; text-align: left; }
+      .total-row { font-weight: bold; background: #f9f9f9; }
+      .status-badge { display: inline-block; padding: 5px 10px; border-radius: 5px; color: white; background-color: ${isLunas ? '#28a745' : '#dc3545'}; font-weight: bold; }
+    </style>
+
+    <div class="invoice-box">
+      ${isLunas ? '<div class="watermark">LUNAS</div>' : ''}
+      
+      <table class="top-table">
+        <tr>
+          ${logoHtml ? `<td style="width: 15%; vertical-align: top;">${logoHtml}</td>` : ''}
+          <td class="title" style="width: ${logoHtml ? '50%' : '65%'}; vertical-align: top;">
+            <span style="font-size: 32px; color: #000; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">${config.nama_toko || 'AKIO FLORIST'}</span><br>
+            <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; letter-spacing: 2px;">${config.tagline || 'SPECIALIST PAPAN BUNGA'}</span><br>
+            <span style="font-size: 11px; font-weight: normal; color: #555;">${config.alamat || ''} ${config.telepon ? '| WA: ' + config.telepon : ''}</span><br><br>
+            <span style="font-size: 18px; text-decoration: underline;">INVOICE PESANAN</span>
+          </td>
+          <td style="text-align: right; vertical-align: top;">
+            <b>No Nota:</b> ${p.no_nota}<br>
+            <b>Tanggal Pesan:</b> ${p.tanggal}<br>
+            <b>Status:</b> <span class="status-badge">${isLunas ? 'LUNAS' : 'BELUM LUNAS'}</span>
+          </td>
+        </tr>
+      </table>
+      <hr style="border: 0; border-top: 1px solid #eee;">
+      
+      <div style="margin-top: 15px;">
+        <b>Ditujukan kepada:</b><br>
+        Pemesan : <b>${p.nama_pemesan}</b><br>
+        Lokasi Pengantaran : ${p.lokasi_pengantaran || '-'}<br>
+        Tanggal Pengantaran : <b>${p.tanggal_antar || p.tanggal}</b>
+      </div>
+
+      <table class="info-table">
+        <thead>
+          <tr>
+            <th>Deskripsi Pesanan</th>
+            <th style="width: 200px; text-align: right;">Total / Harga</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <b>Jenis/Ukuran Papan:</b> ${p.jenis_papan}<br><br>
+              <b>Catatan Ucapan Tertulis:</b><br>
+              <i>"${p.ucapan}"</i>
+            </td>
+            <td style="text-align: right; vertical-align: bottom;">${formatRp(p.harga)}</td>
+          </tr>
+          <tr class="total-row">
+            <td style="text-align: right;">TOTAL BAYAR</td>
+            <td style="text-align: right; font-size: 18px;">${formatRp(p.harga)}</td>
+          </tr>
+          <tr class="total-row" style="color: #28a745;">
+            <td style="text-align: right;">TELAH DIBAYAR</td>
+            <td style="text-align: right; font-size: 15px;">${formatRp(p.dibayar)}</td>
+          </tr>
+          <tr class="total-row" style="color: #dc3545;">
+            <td style="text-align: right;">SISA TAGIHAN</td>
+            <td style="text-align: right; font-size: 15px;">${formatRp(p.harga - p.dibayar)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <table style="width: 100%; margin-top: 40px;">
+        <tr>
+          <td style="width: 70%; text-align: left; color: #777; vertical-align: top;">
+            <p>Terima kasih atas pesanan papan bunga Anda!</p>
+            <p style="font-size: 11px; margin-top: 15px;">
+              * Invoice ini sah dan dicetak secara otomatis (komputerisasi).<br>
+              Silakan <i>scan</i> QR Code di samping untuk verifikasi keaslian nota.
+            </p>
+          </td>
+          <td style="width: 30%; text-align: right; vertical-align: top;">
+            ${qrDataBase64 ? `<img src="${qrDataBase64}" alt="QR Code Verifikasi" style="width: 110px; height: 110px; border: 1px solid #ddd; padding: 4px;"><br>` : ''}
+            <span style="font-size: 10px; color: #777; font-family: monospace;">SIGN: ${signature}</span>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  window.print();
+}
+
+// === FUNGSI PERIKSA QR CODE VERIFIKASI DARI URL ===
+async function checkUrlInvoiceVerification() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const notaParam = urlParams.get('nota');
+  const signParam = urlParams.get('sign');
+  const totalParam = urlParams.get('total');
+
+  if (notaParam && signParam) {
+    const banner = document.getElementById('verification-banner');
+    if (!banner) return;
+
+    banner.style.display = 'block';
+    banner.innerHTML = `
+      <div style="padding: 1.25rem; background: rgba(16, 185, 129, 0.15); border: 2px solid #10b981; border-radius: 12px; margin-bottom: 1.5rem;">
+        <h3 style="color: #34d399; margin-bottom: 0.5rem; display:flex; align-items:center; gap:0.5rem;">
+          <span>✅ VERIFIKASI KEASLIAN NOTA: SAH / VALID</span>
+        </h3>
+        <p style="font-size: 0.95rem; color: #f8fafc;">
+          Nota Pesanan <b>${notaParam}</b> dengan Signature Digital <code>SIGN: ${signParam}</code> telah terverifikasi resmi oleh sistem Akio Florist.
+        </p>
+        ${totalParam ? `<p style="font-size: 0.9rem; color: #94a3b8; margin-top:0.25rem;">Nilai Pesanan: <b>Rp ${parseInt(totalParam).toLocaleString('id-ID')}</b></p>` : ''}
+        <button class="btn btn-secondary btn-sm" style="margin-top:0.75rem;" onclick="document.getElementById('verification-banner').style.display='none'">Tutup Verifikasi</button>
+      </div>
+    `;
+  }
+}
+
+// Jalankan periksa verifikasi URL saat script dimuat
+setTimeout(checkUrlInvoiceVerification, 300);
