@@ -1,5 +1,4 @@
-// Google Drive Sync Manager
-// Menangani autentikasi Google OAuth2 dan Sinkronisasi Backup JSON ke Google Drive
+// Google Drive Sync Manager (With Silent Real-Time Auto Sync across Devices)
 
 const GDRIVE_FILE_NAME = 'finance_papanbunga_backup.json';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
@@ -10,7 +9,7 @@ let accessToken = localStorage.getItem('gdrive_access_token') || null;
 // Status Indikator SINKRONISASI
 const syncState = {
   isOnline: navigator.onLine,
-  isLoggedIn: false,
+  isLoggedIn: !!accessToken,
   lastSyncTime: localStorage.getItem('gdrive_last_sync') || null,
   syncing: false
 };
@@ -19,6 +18,7 @@ const syncState = {
 window.addEventListener('online', () => {
   syncState.isOnline = true;
   updateSyncUI();
+  autoSyncBackgroundPull();
 });
 
 window.addEventListener('offline', () => {
@@ -28,23 +28,29 @@ window.addEventListener('offline', () => {
 
 // Inisialisasi Client Google Identity Services (GIS)
 function initGoogleDriveAuth(clientId, callback) {
-  if (typeof google === 'undefined' || !google.accounts) return;
+  if (typeof google === 'undefined' || !google.accounts || !clientId) return;
 
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: clientId,
-    scope: SCOPES,
-    callback: async (response) => {
-      if (response.error) {
-        console.error('Google Auth Error:', response);
-        return;
-      }
-      accessToken = response.access_token;
-      localStorage.setItem('gdrive_access_token', accessToken);
-      syncState.isLoggedIn = true;
-      updateSyncUI();
-      if (callback) callback();
-    },
-  });
+  try {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: SCOPES,
+      callback: async (response) => {
+        if (response.error) {
+          console.error('Google Auth Error:', response);
+          return;
+        }
+        accessToken = response.access_token;
+        localStorage.setItem('gdrive_access_token', accessToken);
+        syncState.isLoggedIn = true;
+        updateSyncUI();
+        if (callback) callback();
+        // Otomatis langsung tarik data terbaru saat login berhasil
+        autoSyncBackgroundPull();
+      },
+    });
+  } catch (err) {
+    console.error('[GIS Init Error]', err);
+  }
 }
 
 // Memicu Popup Login Google
@@ -56,10 +62,10 @@ function loginGoogleDrive() {
   }
 }
 
-// Upload Data Local ke Google Drive
-async function uploadDataToDrive() {
-  if (!accessToken) {
-    alert('Silakan hubungkan akun Google Drive Anda di Pengaturan terlebih dahulu!');
+// Upload Data Local ke Google Drive (Dapat berjalan silent/otomatis)
+async function uploadDataToDrive(silent = false) {
+  if (!accessToken || !syncState.isOnline) {
+    if (!silent) alert('Silakan hubungkan akun Google Drive Anda di Pengaturan terlebih dahulu!');
     return false;
   }
 
@@ -96,11 +102,10 @@ async function uploadDataToDrive() {
     });
 
     if (res.status === 401) {
-      // Token expired, minta login ulang
       localStorage.removeItem('gdrive_access_token');
       accessToken = null;
       syncState.isLoggedIn = false;
-      alert('Sesi Google Drive telah berakhir. Silakan hubungkan kembali.');
+      if (!silent) alert('Sesi Google Drive telah berakhir. Silakan hubungkan kembali.');
       return false;
     }
 
@@ -109,12 +114,12 @@ async function uploadDataToDrive() {
     const now = new Date().toLocaleString('id-ID');
     syncState.lastSyncTime = now;
     localStorage.setItem('gdrive_last_sync', now);
-    alert(`✅ Data berhasil disinkronkan ke Google Drive pada ${now}`);
+    if (!silent) alert(`✅ Data berhasil disinkronkan ke Google Drive pada ${now}`);
     return true;
 
   } catch (err) {
     console.error('Error Syncing to Drive:', err);
-    alert(`⚠️ Gagal melakukan sinkronisasi: ${err.message}`);
+    if (!silent) alert(`⚠️ Gagal melakukan sinkronisasi: ${err.message}`);
     return false;
   } finally {
     syncState.syncing = false;
@@ -122,10 +127,10 @@ async function uploadDataToDrive() {
   }
 }
 
-// Download Data dari Google Drive ke Local
-async function downloadDataFromDrive() {
-  if (!accessToken) {
-    alert('Silakan hubungkan akun Google Drive Anda terlebih dahulu!');
+// Download Data dari Google Drive ke Local (Dapat berjalan silent/otomatis)
+async function downloadDataFromDrive(silent = false) {
+  if (!accessToken || !syncState.isOnline) {
+    if (!silent) alert('Silakan hubungkan akun Google Drive Anda terlebih dahulu!');
     return false;
   }
 
@@ -135,7 +140,7 @@ async function downloadDataFromDrive() {
   try {
     const fileId = await findBackupFileId();
     if (!fileId) {
-      alert('File backup tidak ditemukan di Google Drive Anda.');
+      if (!silent) alert('File backup tidak ditemukan di Google Drive Anda.');
       return false;
     }
 
@@ -151,17 +156,36 @@ async function downloadDataFromDrive() {
     const now = new Date().toLocaleString('id-ID');
     syncState.lastSyncTime = now;
     localStorage.setItem('gdrive_last_sync', now);
-    alert('✅ Data dari Google Drive berhasil diunduh dan dipulihkan ke HP/PC Anda!');
-    window.location.reload();
+    if (!silent) alert('✅ Data dari Google Drive berhasil diunduh dan dipulihkan ke HP/PC Anda!');
+    
+    // Refresh UI modules tanpa reload halaman penuh
+    if (typeof refreshActiveViewModule === 'function') {
+      refreshActiveViewModule();
+    } else {
+      window.location.reload();
+    }
     return true;
 
   } catch (err) {
     console.error('Error Downloading from Drive:', err);
-    alert(`⚠️ Gagal mengunduh data: ${err.message}`);
+    if (!silent) alert(`⚠️ Gagal mengunduh data: ${err.message}`);
     return false;
   } finally {
     syncState.syncing = false;
     updateSyncUI();
+  }
+}
+
+// Automatic Background Push & Pull Helpers
+function autoSyncBackgroundPush() {
+  if (accessToken && syncState.isOnline) {
+    setTimeout(() => uploadDataToDrive(true), 500);
+  }
+}
+
+function autoSyncBackgroundPull() {
+  if (accessToken && syncState.isOnline) {
+    setTimeout(() => downloadDataFromDrive(true), 800);
   }
 }
 
@@ -191,7 +215,7 @@ function updateSyncUI() {
     badge.innerHTML = '🔄 SINKRONISASI...';
   } else if (accessToken) {
     badge.className = 'sync-status-badge online';
-    badge.innerHTML = '☁️ DRIVE CONNECTED';
+    badge.innerHTML = '☁️ AUTO-SYNC ACTIVE';
   } else {
     badge.className = 'sync-status-badge offline';
     badge.innerHTML = '🌐 ONLINE (Local)';

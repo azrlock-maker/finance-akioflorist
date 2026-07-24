@@ -1,4 +1,4 @@
-// Main Application Controller & Router
+// Main Application Controller & Router (With Silent Auto Sync Router)
 
 let currentView = 'dashboard';
 
@@ -16,8 +16,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     initGoogleDriveAuth(clientId);
   }
 
-  // Update UI status sync
+  // Update UI status sync & auto-pull data dari Cloud/Drive
   if (typeof updateSyncUI === 'function') updateSyncUI();
+  if (typeof autoSyncBackgroundPull === 'function') autoSyncBackgroundPull();
 
   // Load Store Header Logo & Nama Toko
   loadHeaderStoreProfile();
@@ -49,6 +50,11 @@ async function loadHeaderStoreProfile() {
   } catch (e) {}
 }
 
+// Helper untuk memperbarui tampilan modul yang sedang aktif setelah sync otomatis
+function refreshActiveViewModule() {
+  switchView(currentView);
+}
+
 // View Switcher Router
 async function switchView(viewName) {
   currentView = viewName;
@@ -66,63 +72,63 @@ async function switchView(viewName) {
   // Hide all views
   document.querySelectorAll('.page-view').forEach(el => el.classList.remove('active'));
 
-  // Show target view
-  const targetView = document.getElementById(`view-${viewName}`);
-  if (targetView) targetView.classList.add('active');
-
-  // Set Header Title
-  const titles = {
-    dashboard: 'Dashboard Utama',
-    pesanan: 'Kelola Pesanan Papan',
-    proses: 'Status Produksi Papan',
-    keuangan: 'Keuangan Kas Operasional',
-    hutang: 'Sisa Hutang Pelanggan',
-    jadwal: 'Jadwal Pengantaran Armada',
-    laporan: 'Laporan & Rekap Statistik',
-    pengaturan: 'Pengaturan & Sync'
-  };
+  // Update title header
   const titleEl = document.getElementById('current-page-title');
-  if (titleEl) titleEl.innerText = titles[viewName] || 'Finance Papan Bunga';
+  const titleMap = {
+    'dashboard': 'Dashboard Utama',
+    'pesanan': 'Pesanan Papan Bunga',
+    'proses': 'Kanban Status Proses Papan',
+    'keuangan': 'Keuangan Transaksi Kas',
+    'hutang': 'Sisa Hutang & Piutang Pelanggan',
+    'jadwal': 'Jadwal Antar Armada',
+    'laporan': 'Laporan & Statistik',
+    'pengaturan': 'Pengaturan Toko & Drive Sync'
+  };
+  if (titleEl) titleEl.innerText = titleMap[viewName] || 'Dashboard Utama';
 
-  // Close mobile sidebar if open
-  closeMobileSidebar();
+  // Show target view & render module
+  const targetView = document.getElementById(`view-${viewName}`);
+  if (targetView) {
+    targetView.classList.add('active');
 
-  // Render corresponding module content
-  switch (viewName) {
-    case 'dashboard':
-      if (typeof renderDashboardModule === 'function') await renderDashboardModule();
-      break;
-    case 'pesanan':
-      if (typeof renderPesananModule === 'function') await renderPesananModule();
-      break;
-    case 'proses':
-      if (typeof renderProsesModule === 'function') await renderProsesModule();
-      break;
-    case 'keuangan':
-      if (typeof renderKeuanganModule === 'function') await renderKeuanganModule();
-      break;
-    case 'hutang':
-      if (typeof renderHutangModule === 'function') await renderHutangModule();
-      break;
-    case 'jadwal':
-      if (typeof renderJadwalModule === 'function') await renderJadwalModule();
-      break;
-    case 'laporan':
-      if (typeof renderLaporanModule === 'function') await renderLaporanModule();
-      break;
-    case 'pengaturan':
-      if (typeof renderPengaturanModule === 'function') await renderPengaturanModule();
-      break;
+    switch (viewName) {
+      case 'dashboard':
+        if (typeof renderDashboardModule === 'function') renderDashboardModule();
+        break;
+      case 'pesanan':
+        if (typeof renderPesananModule === 'function') renderPesananModule();
+        break;
+      case 'proses':
+        if (typeof renderProsesModule === 'function') renderProsesModule();
+        break;
+      case 'keuangan':
+        if (typeof renderKeuanganModule === 'function') renderKeuanganModule();
+        break;
+      case 'hutang':
+        if (typeof renderHutangModule === 'function') renderHutangModule();
+        break;
+      case 'jadwal':
+        if (typeof renderJadwalModule === 'function') renderJadwalModule();
+        break;
+      case 'laporan':
+        if (typeof renderLaporanModule === 'function') renderLaporanModule();
+        break;
+      case 'pengaturan':
+        if (typeof renderPengaturanModule === 'function') renderPengaturanModule();
+        break;
+    }
+  }
+
+  // Close mobile sidebar drawer on click
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar && sidebar.classList.contains('mobile-active')) {
+    sidebar.classList.remove('mobile-active');
   }
 }
 
-// Mobile Sidebar Toggle
 function toggleMobileSidebar() {
   const sidebar = document.getElementById('sidebar');
-  if (sidebar) sidebar.classList.toggle('open');
-}
-
-function closeMobileSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  if (sidebar) sidebar.classList.remove('open');
+  if (sidebar) {
+    sidebar.classList.toggle('mobile-active');
+  }
 }

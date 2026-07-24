@@ -100,6 +100,7 @@ async function dbTambahPesanan(data) {
     });
   }
 
+  if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
   return pesananId;
 }
 
@@ -152,6 +153,8 @@ async function dbUpdatePesanan(id, data) {
       });
     }
   }
+
+  if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
 }
 
 // Hapus Pesanan + Transaksi Kas Terkait
@@ -161,6 +164,7 @@ async function dbHapusPesanan(id) {
     await db.keuangan.where('no_nota').equals(pesanan.no_nota).delete();
   }
   await db.pesanan.delete(id);
+  if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
 }
 
 // Tandai Lunas Satu Pesanan
@@ -187,6 +191,8 @@ async function dbTandaiLunas(id) {
       no_nota: pesanan.no_nota
     });
   }
+
+  if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
 }
 
 // Update Status Proses Papan
@@ -200,6 +206,8 @@ async function dbUpdateStatusProses(id, statusBaru) {
   } else {
     await db.pesanan.update(id, { status_proses: statusBaru });
   }
+
+  if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
 }
 
 // Rekap Hutang per Pelanggan
@@ -257,6 +265,8 @@ async function dbBayarLunasPelanggan(namaPelanggan) {
       });
     }
   }
+
+  if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
 }
 
 // Bayar Cicilan / Sebagian Pelanggan
@@ -298,6 +308,8 @@ async function dbBayarSebagianPelanggan(namaPelanggan, jumlahBayar) {
 
     sisaBayar -= tambah;
   }
+
+  if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
 }
 
 // Export Full Data JSON untuk Backup / Drive Sync
