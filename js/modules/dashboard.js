@@ -1,4 +1,4 @@
-// Dashboard & Statistik Module (With Pesanan Terhutang Table)
+// Dashboard & Statistik Module (Clean Layout Without Recent Orders Table)
 
 let dashboardSelectedMonth = String(new Date().getMonth() + 1).padStart(2, '0');
 let dashboardSelectedYear = String(new Date().getFullYear());
@@ -47,12 +47,18 @@ async function renderDashboardModule() {
   // 5. Keuntungan Bersih
   const keuntunganBersih = totalPemasukanBulan - totalPengeluaranBulan;
 
+  // 6. Total Sisa Hutang Keseluruhan (Piutang Pelanggan)
+  let totalSisaHutangKeseluruhan = 0;
+  allPesanan.forEach(p => {
+    const h = p.harga || 0;
+    const d = p.dibayar || 0;
+    if (d < h) {
+      totalSisaHutangKeseluruhan += (h - d);
+    }
+  });
+
   // Pesanan Hari Ini yang Harus Diantar (Alert)
   const pesananHariIni = allPesanan.filter(p => p.tanggal_antar === todayStr && p.status_proses !== 'Papan Di Antar');
-
-  // Filter Pesanan Terhutang (Belum Lunas)
-  const pesananTerhutang = allPesanan.filter(p => !p.status_lunas && (p.dibayar || 0) < (p.harga || 0));
-  pesananTerhutang.sort((a, b) => ((b.harga || 0) - (b.dibayar || 0)) - ((a.harga || 0) - (a.dibayar || 0)));
 
   const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
 
@@ -90,7 +96,7 @@ async function renderDashboardModule() {
       </div>
     </div>
 
-    <!-- 5 Summary Cards -->
+    <!-- 6 Summary Cards -->
     <div class="grid-stats" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
       <div class="stat-card">
         <div class="stat-icon blue">📦</div>
@@ -131,54 +137,30 @@ async function renderDashboardModule() {
           <div class="value">${formatRp(totalPengeluaranBulan)}</div>
         </div>
       </div>
+
+      <div class="stat-card" style="cursor:pointer;" title="Klik untuk lihat rincian sisa hutang" onclick="switchView('hutang')">
+        <div class="stat-icon purple">⚠️</div>
+        <div class="stat-info">
+          <div class="label">Total Sisa Hutang</div>
+          <div class="value" style="color:var(--danger);">${formatRp(totalSisaHutangKeseluruhan)}</div>
+        </div>
+      </div>
     </div>
 
     <!-- Quick Action Bar -->
     <div style="margin-bottom: 1.5rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="openPesananModal()"><span class="icon">➕</span> Tambah Pesanan Baru</button>
       <button class="btn btn-secondary" onclick="openKeuanganModal()"><span class="icon">💸</span> Catat Transaksi Kas</button>
+      <button class="btn btn-secondary" onclick="switchView('hutang')"><span class="icon">⚠️</span> Rekap Sisa Hutang</button>
     </div>
 
-    <!-- Tabel Pesanan Terhutang & Charts Grid -->
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:1.5rem;">
-      <div class="card" style="margin-bottom:0;">
-        <div class="card-header">
-          <div class="card-title">⚠️ Daftar Pesanan Terhutang / Belum Lunas</div>
-          <button class="btn btn-secondary btn-sm" onclick="switchView('hutang')">Rekap Hutang</button>
-        </div>
-        <div class="table-responsive">
-          <table class="data-table" style="min-width:100%;">
-            <thead>
-              <tr>
-                <th>Pemesan & Nota</th>
-                <th>Total Harga</th>
-                <th>Sisa Hutang</th>
-                <th style="text-align:right;">Pelunasan</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${pesananTerhutang.length > 0 ? pesananTerhutang.slice(0, 5).map(p => `
-                <tr>
-                  <td><b>${p.nama_pemesan || '-'}</b><br><small style="color:var(--text-muted);">${p.no_nota || ''}</small></td>
-                  <td>${formatRp(p.harga)}</td>
-                  <td><b style="color:var(--danger);">${formatRp(p.harga - p.dibayar)}</b></td>
-                  <td style="text-align:right;">
-                    <button class="btn btn-success btn-sm" style="font-size:0.75rem; padding:0.2rem 0.5rem;" onclick="handleTandaiLunas(${p.id})">✔ Lunas</button>
-                  </td>
-                </tr>
-              `).join('') : '<tr><td colspan="4" style="text-align:center; padding:1.5rem; color:var(--success);">🎉 Tidak ada penunggakan hutang pesanan saat ini!</td></tr>'}
-            </tbody>
-          </table>
-        </div>
+    <!-- Clean Pie Chart Section (Without Pesanan Terbaru) -->
+    <div class="card" style="margin-bottom:0;">
+      <div class="card-header">
+        <div class="card-title">🥧 Distribusi Operasional Keuangan (${monthNamesMap[dashboardSelectedMonth]} ${dashboardSelectedYear})</div>
       </div>
-
-      <div class="card" style="margin-bottom:0;">
-        <div class="card-header">
-          <div class="card-title">🥧 Distribusi Keuangan (${monthNamesMap[dashboardSelectedMonth]} ${dashboardSelectedYear})</div>
-        </div>
-        <div style="height: 250px; position:relative;">
-          <canvas id="dashboardChart"></canvas>
-        </div>
+      <div style="height: 300px; position:relative; max-width:600px; margin:0 auto;">
+        <canvas id="dashboardChart"></canvas>
       </div>
     </div>
   `;
@@ -217,7 +199,7 @@ async function renderDashboardModule() {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { position: 'bottom', labels: { color: '#f8fafc' } }
+            legend: { position: 'bottom', labels: { color: '#f8fafc', font: { size: 14 } } }
           }
         }
       });

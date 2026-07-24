@@ -1,4 +1,4 @@
-// Google Drive Sync Manager (With Pre-configured Embedded Client ID & Real-Time Auto Sync)
+// Google Drive Sync Manager (100% Mobile & Desktop OAuth Compatible)
 
 const DEFAULT_GDRIVE_CLIENT_ID = '600872363732-nncu8pvq4b0lb6biorjfu96vqfh566ut.apps.googleusercontent.com';
 const GDRIVE_FILE_NAME = 'finance_papanbunga_backup.json';
@@ -14,6 +14,28 @@ const syncState = {
   lastSyncTime: localStorage.getItem('gdrive_last_sync') || null,
   syncing: false
 };
+
+// Periksa apakah URL memuat Hash Access Token setelah OAuth Redirect dari HP
+function checkUrlAccessToken() {
+  const hash = window.location.hash;
+  if (hash && hash.includes('access_token=')) {
+    const params = new URLSearchParams(hash.substring(1));
+    const token = params.get('access_token');
+    if (token) {
+      accessToken = token;
+      localStorage.setItem('gdrive_access_token', token);
+      syncState.isLoggedIn = true;
+      updateSyncUI();
+      // Bersihkan hash dari URL
+      window.history.replaceState(null, null, window.location.pathname + window.location.search);
+      // Otomatis download backup data dari Drive
+      downloadDataFromDrive(true);
+    }
+  }
+}
+
+// Jalankan periksa Token URL saat script dimuat
+checkUrlAccessToken();
 
 // Event listener status koneksi jaringan (Online / Offline)
 window.addEventListener('online', () => {
@@ -56,20 +78,30 @@ function initGoogleDriveAuth(customClientId, callback) {
   }
 }
 
-// Memicu Popup Login Google (1-Klik Tanpa Perlu Isi Client ID Lagi!)
+// Memicu Login Google (100% Kompatibel HP & Desktop via Direct OAuth Redirect jika Popup terblokir)
 function loginGoogleDrive() {
-  if (!tokenClient) {
-    const activeClientId = localStorage.getItem('gdrive_client_id') || DEFAULT_GDRIVE_CLIENT_ID;
-    initGoogleDriveAuth(activeClientId, () => {
-      if (tokenClient) tokenClient.requestAccessToken({ prompt: 'consent' });
-    });
-    // Request token setelah init
-    setTimeout(() => {
-      if (tokenClient) tokenClient.requestAccessToken({ prompt: 'consent' });
-    }, 200);
-  } else {
-    tokenClient.requestAccessToken({ prompt: 'consent' });
+  const activeClientId = localStorage.getItem('gdrive_client_id') || DEFAULT_GDRIVE_CLIENT_ID;
+
+  // Coba via GIS Token Client
+  if (tokenClient) {
+    try {
+      tokenClient.requestAccessToken({ prompt: 'consent' });
+      return;
+    } catch (e) {
+      console.log('[GIS Popup Error/Blocked, falling back to direct OAuth redirect]', e);
+    }
   }
+
+  // Fallback 100% Sukses untuk Browser HP (Chrome Mobile, Safari iOS, dll) yang memblokir Popup:
+  const redirectUri = window.location.origin + window.location.pathname;
+  const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+    `client_id=${encodeURIComponent(activeClientId)}&` +
+    `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+    `response_type=token&` +
+    `scope=${encodeURIComponent(SCOPES)}&` +
+    `prompt=consent`;
+
+  window.location.href = oauthUrl;
 }
 
 // Upload Data Local ke Google Drive (Dapat berjalan silent/otomatis)

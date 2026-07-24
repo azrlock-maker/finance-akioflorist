@@ -86,10 +86,11 @@
   gap: 0.5rem;
 }
 
-/* Data Tables & Responsive Scrollable Container */
+/* Data Tables & Responsive Scrollable Container (With Sticky Viewport Scrollbar) */
 .table-responsive {
   width: 100%;
-  overflow-x: auto !important;
+  max-height: calc(100vh - 240px); /* Keeps scrollbar visible inside viewport without scrolling to bottom */
+  overflow: auto !important;
   -webkit-overflow-scrolling: touch;
   margin-bottom: 0.5rem;
   display: block;
@@ -97,7 +98,7 @@
 
 .data-table {
   width: 100%;
-  min-width: 920px; /* Forces 8 columns to expand so horizontal scrollbar appears on HP / small screens */
+  min-width: 920px; /* Forces 8 columns to expand so horizontal scrollbar appears on small screens */
   border-collapse: collapse;
   text-align: left;
   font-size: 0.9rem;
@@ -105,11 +106,14 @@
 
 .data-table th {
   padding: 0.85rem 1rem;
-  background: rgba(15, 23, 42, 0.5);
+  background: #1e293b; /* Solid background for sticky header */
   color: var(--text-muted);
   font-weight: 600;
   border-bottom: 1px solid var(--border-color);
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .data-table td {

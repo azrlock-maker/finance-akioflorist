@@ -1,8 +1,12 @@
-// Jadwal Pengantaran Module (Only Un-delivered Pending Orders)
+// Jadwal Pengantaran Module (With Bulk Checkbox Status Update & Pending Deliveries Only)
+
+let selectedJadwalIds = new Set();
 
 async function renderJadwalModule() {
   const container = document.getElementById('view-jadwal');
   if (!container) return;
+
+  selectedJadwalIds.clear();
 
   const allPesanan = await db.pesanan.toArray();
   const todayStr = new Date().toISOString().split('T')[0];
@@ -22,24 +26,40 @@ async function renderJadwalModule() {
 
   let html = `
     <div class="card">
-      <div class="card-header">
-        <div class="card-title">📅 Jadwal Pengantaran Papan Bunga (Belum Diantar)</div>
-        <p style="font-size:0.85rem; color:var(--text-muted); width:100%;">
-          Menampilkan daftar jadwal armada pesanan yang <b>belum selesai diantar</b>.
-        </p>
+      <div class="card-header" style="flex-wrap:wrap; gap:1rem;">
+        <div>
+          <div class="card-title">📅 Jadwal Pengantaran Papan Bunga (Belum Diantar)</div>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">
+            Tandai centang pada papan yang ingin diubah statusnya sekaligus menjadi <b>Papan Di Antar</b>.
+          </p>
+        </div>
+
+        ${pendingPesanan.length > 0 ? `
+          <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+            <button id="btn-bulk-antar" class="btn btn-success" disabled onclick="handleBulkUpdateStatusAntar()">
+              🚚 Ubah <span id="bulk-count-badge">(0)</span> Papan Terpilih ➔ Papan Di Antar
+            </button>
+          </div>
+        ` : ''}
       </div>
 
       ${sortedDates.length > 0 ? sortedDates.map(tgl => `
         <div style="margin-bottom:1.5rem;">
-          <div style="padding:0.5rem 0.75rem; background:rgba(255,255,255,0.05); border-left:4px solid ${tgl === todayStr ? '#f59e0b' : '#3b82f6'}; border-radius:4px; font-weight:700; margin-bottom:0.75rem; display:flex; justify-content:space-between; align-items:center;">
+          <div style="padding:0.6rem 0.85rem; background:rgba(255,255,255,0.05); border-left:4px solid ${tgl === todayStr ? '#f59e0b' : '#3b82f6'}; border-radius:6px; font-weight:700; margin-bottom:0.75rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
             <span>🗓️ Tanggal Antar: ${tgl} ${tgl === todayStr ? '⚠️ (HARI INI!)' : ''}</span>
-            <span class="badge badge-proses">${grouped[tgl].length} Papan Belum Antar</span>
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+              <label style="font-size:0.8rem; cursor:pointer; color:var(--text-muted);">
+                <input type="checkbox" onchange="toggleSelectAllGroup('${tgl}', this.checked)" style="transform:scale(1.1); margin-right:4px;"> Pilih Semua Tgl Ini
+              </label>
+              <span class="badge badge-proses">${grouped[tgl].length} Papan Belum Antar</span>
+            </div>
           </div>
 
           <div class="table-responsive">
             <table class="data-table">
               <thead>
                 <tr>
+                  <th style="width:40px; text-align:center;">Pilih</th>
                   <th>No. Nota</th>
                   <th>Pemesan</th>
                   <th>Jenis & Ucapan</th>
@@ -50,6 +70,10 @@ async function renderJadwalModule() {
               <tbody>
                 ${grouped[tgl].map(p => `
                   <tr>
+                    <td style="text-align:center;">
+                      <input type="checkbox" class="jadwal-check-item check-group-${tgl}" value="${p.id}" 
+                             onchange="onJadwalCheckChange(this)" style="width:18px; height:18px; cursor:pointer;">
+                    </td>
                     <td><b>${p.no_nota || '-'}</b></td>
                     <td><b>${p.nama_pemesan || '-'}</b></td>
                     <td>
@@ -76,6 +100,67 @@ async function renderJadwalModule() {
   `;
 
   container.innerHTML = html;
+}
+
+function onJadwalCheckChange(el) {
+  const id = parseInt(el.value);
+  if (el.checked) {
+    selectedJadwalIds.add(id);
+  } else {
+    selectedJadwalIds.delete(id);
+  }
+  updateBulkButtonState();
+}
+
+function toggleSelectAllGroup(tglGroup, isChecked) {
+  const checkboxes = document.querySelectorAll(`.check-group-${tglGroup}`);
+  checkboxes.forEach(cb => {
+    cb.checked = isChecked;
+    const id = parseInt(cb.value);
+    if (isChecked) {
+      selectedJadwalIds.add(id);
+    } else {
+      selectedJadwalIds.delete(id);
+    }
+  });
+  updateBulkButtonState();
+}
+
+function updateBulkButtonState() {
+  const btn = document.getElementById('btn-bulk-antar');
+  const badge = document.getElementById('bulk-count-badge');
+  const count = selectedJadwalIds.size;
+
+  if (badge) badge.innerText = `(${count})`;
+
+  if (btn) {
+    if (count > 0) {
+      btn.disabled = false;
+      btn.classList.add('btn-success');
+      btn.style.opacity = '1';
+    } else {
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+    }
+  }
+}
+
+async function handleBulkUpdateStatusAntar() {
+  const count = selectedJadwalIds.size;
+  if (count === 0) return;
+
+  if (confirm(`Ubah status ${count} papan bunga terpilih sekaligus menjadi "Papan Di Antar"?`)) {
+    const ids = Array.from(selectedJadwalIds);
+    for (const id of ids) {
+      await dbUpdateStatusProses(id, 'Papan Di Antar');
+    }
+
+    selectedJadwalIds.clear();
+    alert(`✅ Berhasil memperbarui ${count} papan menjadi "Papan Di Antar"!`);
+    renderJadwalModule();
+    if (typeof renderDashboardModule === 'function') renderDashboardModule();
+    if (typeof renderProsesModule === 'function') renderProsesModule();
+  }
 }
 
 async function handleChangeStatusProses(id, statusBaru) {
