@@ -17,7 +17,7 @@ async function renderPengaturanModule() {
   };
 
   uploadedLogoBase64 = config.logo_path || '';
-  const activeClientId = config.gdrive_client_id || localStorage.getItem('gdrive_client_id') || '';
+  const activeClientId = typeof DEFAULT_GDRIVE_CLIENT_ID !== 'undefined' ? DEFAULT_GDRIVE_CLIENT_ID : (config.gdrive_client_id || localStorage.getItem('gdrive_client_id') || '');
 
   // Autoload GIS Auth jika client ID ada
   if (activeClientId && typeof initGoogleDriveAuth === 'function') {
@@ -84,27 +84,22 @@ async function renderPengaturanModule() {
         </form>
       </div>
 
-      <!-- Card Google Drive Sync -->
+      <!-- Card Google Drive Sync (Bebas Ketik Client ID!) -->
       <div class="card">
         <div class="card-header">
           <div class="card-title">☁️ Integrasi Google Drive Auto-Sync</div>
         </div>
 
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
-          Hubungkan akun Google Drive Anda untuk mensinkronkan data pesanan & kas secara otomatis antara HP dan PC tanpa server.
-        </p>
-
-        <div class="form-group">
-          <label class="form-label">Google OAuth Client ID</label>
-          <input type="text" id="gdrive_client_id_input" class="form-control" 
-                 placeholder="Contoh: 123456789-abc.apps.googleusercontent.com"
-                 value="${activeClientId}">
-          <button class="btn btn-secondary btn-sm" style="margin-top:0.5rem;" onclick="saveGDriveClientId()">💾 Simpan Client ID</button>
+        <div style="background:rgba(16, 185, 129, 0.12); border:1px solid rgba(16, 185, 129, 0.3); border-radius:10px; padding:1rem; margin-bottom:1.25rem;">
+          <h4 style="color:#34d399; margin-bottom:0.3rem;">✨ Google OAuth Client ID Terpasang Permanen!</h4>
+          <p style="font-size:0.8rem; color:var(--text-muted);">
+            Di perangkat baru/HP mana pun, Anda <b>tidak perlu mengisi Client ID lagi</b>. Cukup klik tombol di bawah untuk meloginkan akun Google Anda 1-klik!
+          </p>
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:0.75rem; margin-top:1rem;">
-          <button class="btn btn-primary" style="padding:0.8rem; font-size:0.95rem;" onclick="loginGoogleDrive()">
-            🔑 Login / Hubungkan Akun Google Drive
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          <button class="btn btn-primary" style="padding:0.9rem; font-size:1rem; font-weight:700;" onclick="loginGoogleDrive()">
+            🔑 Login / Hubungkan Akun Google Drive (1-Klik)
           </button>
           
           <div style="display:flex; gap:0.75rem;">
@@ -163,30 +158,11 @@ async function savePengaturanForm(e) {
     telepon: form.telepon.value,
     website_url: form.website_url.value,
     logo_path: uploadedLogoBase64,
-    gdrive_client_id: existingConfig.gdrive_client_id || localStorage.getItem('gdrive_client_id') || ''
+    gdrive_client_id: existingConfig.gdrive_client_id || DEFAULT_GDRIVE_CLIENT_ID
   });
 
   alert('✅ Pengaturan profil toko berhasil disimpan!');
   if (typeof loadHeaderStoreProfile === 'function') loadHeaderStoreProfile();
-}
-
-async function saveGDriveClientId() {
-  const val = document.getElementById('gdrive_client_id_input').value.trim();
-  if (!val) {
-    alert('Masukkan Google OAuth Client ID terlebih dahulu!');
-    return;
-  }
-
-  localStorage.setItem('gdrive_client_id', val);
-
-  const existingConfig = await db.pengaturan.get(1) || {};
-  existingConfig.gdrive_client_id = val;
-  await db.pengaturan.put(existingConfig);
-
-  alert('✅ Google Client ID berhasil disimpan ke database!');
-  if (typeof initGoogleDriveAuth === 'function') {
-    initGoogleDriveAuth(val);
-  }
 }
 
 // Backup & Restore Lokal File .json

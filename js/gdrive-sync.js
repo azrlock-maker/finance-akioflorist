@@ -1,5 +1,6 @@
-// Google Drive Sync Manager (With Silent Real-Time Auto Sync across Devices)
+// Google Drive Sync Manager (With Pre-configured Embedded Client ID & Real-Time Auto Sync)
 
+const DEFAULT_GDRIVE_CLIENT_ID = '600872363732-nncu8pvq4b0lb6biorjfu96vqfh566ut.apps.googleusercontent.com';
 const GDRIVE_FILE_NAME = 'finance_papanbunga_backup.json';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
@@ -27,12 +28,14 @@ window.addEventListener('offline', () => {
 });
 
 // Inisialisasi Client Google Identity Services (GIS)
-function initGoogleDriveAuth(clientId, callback) {
-  if (typeof google === 'undefined' || !google.accounts || !clientId) return;
+function initGoogleDriveAuth(customClientId, callback) {
+  if (typeof google === 'undefined' || !google.accounts) return;
+
+  const activeClientId = customClientId || localStorage.getItem('gdrive_client_id') || DEFAULT_GDRIVE_CLIENT_ID;
 
   try {
     tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: clientId,
+      client_id: activeClientId,
       scope: SCOPES,
       callback: async (response) => {
         if (response.error) {
@@ -44,8 +47,8 @@ function initGoogleDriveAuth(clientId, callback) {
         syncState.isLoggedIn = true;
         updateSyncUI();
         if (callback) callback();
-        // Otomatis langsung tarik data terbaru saat login berhasil
-        autoSyncBackgroundPull();
+        // Otomatis tarik data terbaru saat login akun Google berhasil
+        downloadDataFromDrive(true);
       },
     });
   } catch (err) {
@@ -53,19 +56,26 @@ function initGoogleDriveAuth(clientId, callback) {
   }
 }
 
-// Memicu Popup Login Google
+// Memicu Popup Login Google (1-Klik Tanpa Perlu Isi Client ID Lagi!)
 function loginGoogleDrive() {
-  if (tokenClient) {
-    tokenClient.requestAccessToken({ prompt: 'consent' });
+  if (!tokenClient) {
+    const activeClientId = localStorage.getItem('gdrive_client_id') || DEFAULT_GDRIVE_CLIENT_ID;
+    initGoogleDriveAuth(activeClientId, () => {
+      if (tokenClient) tokenClient.requestAccessToken({ prompt: 'consent' });
+    });
+    // Request token setelah init
+    setTimeout(() => {
+      if (tokenClient) tokenClient.requestAccessToken({ prompt: 'consent' });
+    }, 200);
   } else {
-    alert('Google API Client belum siap atau Client ID belum dikonfigurasi di Pengaturan Toko.');
+    tokenClient.requestAccessToken({ prompt: 'consent' });
   }
 }
 
 // Upload Data Local ke Google Drive (Dapat berjalan silent/otomatis)
 async function uploadDataToDrive(silent = false) {
   if (!accessToken || !syncState.isOnline) {
-    if (!silent) alert('Silakan hubungkan akun Google Drive Anda di Pengaturan terlebih dahulu!');
+    if (!silent) alert('Silakan klik "Hubungkan Akun Google" terlebih dahulu!');
     return false;
   }
 
@@ -105,7 +115,7 @@ async function uploadDataToDrive(silent = false) {
       localStorage.removeItem('gdrive_access_token');
       accessToken = null;
       syncState.isLoggedIn = false;
-      if (!silent) alert('Sesi Google Drive telah berakhir. Silakan hubungkan kembali.');
+      if (!silent) alert('Sesi Google Drive telah berakhir. Silakan klik "Hubungkan Akun Google" kembali.');
       return false;
     }
 
@@ -130,7 +140,7 @@ async function uploadDataToDrive(silent = false) {
 // Download Data dari Google Drive ke Local (Dapat berjalan silent/otomatis)
 async function downloadDataFromDrive(silent = false) {
   if (!accessToken || !syncState.isOnline) {
-    if (!silent) alert('Silakan hubungkan akun Google Drive Anda terlebih dahulu!');
+    if (!silent) alert('Silakan klik "Hubungkan Akun Google" terlebih dahulu!');
     return false;
   }
 
@@ -140,7 +150,7 @@ async function downloadDataFromDrive(silent = false) {
   try {
     const fileId = await findBackupFileId();
     if (!fileId) {
-      if (!silent) alert('File backup tidak ditemukan di Google Drive Anda.');
+      if (!silent) alert('Belum ada file backup di Google Drive Anda. Lakukan Sync/Upload awal terlebih dahulu.');
       return false;
     }
 
@@ -156,7 +166,7 @@ async function downloadDataFromDrive(silent = false) {
     const now = new Date().toLocaleString('id-ID');
     syncState.lastSyncTime = now;
     localStorage.setItem('gdrive_last_sync', now);
-    if (!silent) alert('✅ Data dari Google Drive berhasil diunduh dan dipulihkan ke HP/PC Anda!');
+    if (!silent) alert('✅ Data dari Google Drive berhasil diunduh dan dipulihkan ke perangkat ini!');
     
     // Refresh UI modules tanpa reload halaman penuh
     if (typeof refreshActiveViewModule === 'function') {
