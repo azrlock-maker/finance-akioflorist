@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="Aplikasi Keuangan & Manajemen Buku Papan Bunga Offline-First with Google Drive Sync">
+  <title>Aplikasi Buku Papan Bunga (Finance Pro)</title>
+  
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563eb'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>💐</text></svg>">
+  
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./css/components.css">
+  
+  <!-- Libraries (IndexedDB Dexie, Chart.js, & QRCode) -->
+  <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+<div id="app-root">
+
+  <!-- Sidebar Navigation (Desktop) -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-box">💐</div>
+      <div class="logo-text">
+        <h1>PapanBunga Pro</h1>
+        <span>Finance & Order System</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-menu">
+      <a class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')">
+        <span class="icon">📊</span> Dashboard
+      </a>
+      <a class="nav-item" data-view="pesanan" onclick="switchView('pesanan')">
+        <span class="icon">📦</span> Pesanan Papan
+      </a>
+      <a class="nav-item" data-view="proses" onclick="switchView('proses')">
+        <span class="icon">🎨</span> Proses Papan
+      </a>
+      <a class="nav-item" data-view="keuangan" onclick="switchView('keuangan')">
+        <span class="icon">💵</span> Keuangan Kas
+      </a>
+      <a class="nav-item" data-view="hutang" onclick="switchView('hutang')">
+        <span class="icon">⚠️</span> Sisa Hutang
+      </a>
+      <a class="nav-item" data-view="jadwal" onclick="switchView('jadwal')">
+        <span class="icon">📅</span> Jadwal Antar
+      </a>
+      <a class="nav-item" data-view="laporan" onclick="switchView('laporan')">
+        <span class="icon">📈</span> Laporan Statistik
+      </a>
+      <a class="nav-item" data-view="pengaturan" onclick="switchView('pengaturan')">
+        <span class="icon">⚙️</span> Pengaturan & Sync
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sync-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">
+          <span style="font-weight:600; color:var(--text-muted);">Status Sync:</span>
+          <span id="sync-status-badge" class="sync-status-badge offline">🌐 ONLINE</span>
+        </div>
+        <div id="sync-last-time" style="font-size:0.7rem; color:var(--text-muted);">Sync: Belum ada</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <main class="main-wrapper">
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="header-title">
+        <button class="mobile-menu-btn" onclick="toggleMobileSidebar()">☰</button>
+        <h2 id="current-page-title">Dashboard Utama</h2>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary btn-sm" onclick="uploadDataToDrive()" title="Sync ke Google Drive">☁️ Sync</button>
+      </div>
+    </header>
+
+    <!-- Content Body Pages -->
+    <div class="content-body">
+      <!-- Modal Verifikasi Barcode/QR Code Invoice (Jika di-scan dari HP) -->
+      <div id="verification-banner" style="display:none;" class="card"></div>
+
+      <div id="view-dashboard" class="page-view active"></div>
+      <div id="view-pesanan" class="page-view"></div>
+      <div id="view-proses" class="page-view"></div>
+      <div id="view-keuangan" class="page-view"></div>
+      <div id="view-hutang" class="page-view"></div>
+      <div id="view-jadwal" class="page-view"></div>
+      <div id="view-laporan" class="page-view"></div>
+      <div id="view-pengaturan" class="page-view"></div>
+    </div>
+  </main>
+
+  <!-- Bottom Navigation Bar (Mobile) -->
+  <nav class="bottom-nav">
+    <a class="bottom-nav-item active" data-view="dashboard" onclick="switchView('dashboard')">
+      <span class="icon">📊</span>
+      <span>Home</span>
+    </a>
+    <a class="bottom-nav-item" data-view="pesanan" onclick="switchView('pesanan')">
+      <span class="icon">📦</span>
+      <span>Pesanan</span>
+    </a>
+    <a class="bottom-nav-item" data-view="proses" onclick="switchView('proses')">
+      <span class="icon">🎨</span>
+      <span>Proses</span>
+    </a>
+    <a class="bottom-nav-item" data-view="keuangan" onclick="switchView('keuangan')">
+      <span class="icon">💵</span>
+      <span>Kas</span>
+    </a>
+    <a class="bottom-nav-item" data-view="jadwal" onclick="switchView('jadwal')">
+      <span class="icon">📅</span>
+      <span>Jadwal</span>
+    </a>
+  </nav>
+
+</div>
+
+<!-- Modal Form Input Pesanan -->
+<div class="modal-overlay" id="modal-pesanan">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-pesanan-title">Tambah Pesanan Baru</div>
+      <button class="btn btn-secondary btn-sm" onclick="closePesananModal()">✕</button>
+    </div>
+    <form id="form-pesanan" onsubmit="savePesananForm(event)">
+      <div class="modal-body">
+        <input type="hidden" name="pesanan_id">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Tanggal Pesan</label>
+            <input type="date" name="tanggal" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tanggal Pengantaran</label>
+            <input type="date" name="tanggal_antar" class="form-control" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nama Pemesan</label>
+          <input type="text" name="nama_pemesan" class="form-control" placeholder="Contoh: PT Sukses Mandiri" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lokasi Pengantaran</label>
+          <input type="text" name="lokasi_pengantaran" class="form-control" placeholder="Contoh: Gedung Wanita, Jl. Sudirman">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Jenis Papan</label>
+            <select name="jenis_papan" class="form-control">
+              <option value="Papan Single">Papan Single</option>
+              <option value="Papan Double">Papan Double</option>
+              <option value="Papan Gandeng">Papan Gandeng</option>
+              <option value="Bunga Meja">Bunga Meja</option>
+              <option value="Standing Flower">Standing Flower</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Harga Papan (Rp)</label>
+            <input type="number" name="harga" class="form-control" placeholder="300000" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jumlah Uang Muka / Dibayar (Rp)</label>
+          <input type="number" name="dibayar" class="form-control" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ucapan Papan Bunga</label>
+          <textarea name="ucapan" class="form-control" rows="3" placeholder="Selamat & Sukses atas Pernikahan..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closePesananModal()">Batal</button>
+        <button type="submit" class="btn btn-primary">Simpan Pesanan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Form Input Keuangan Kas -->
+<div class="modal-overlay" id="modal-keuangan">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">Catat Transaksi Kas</div>
+      <button class="btn btn-secondary btn-sm" onclick="closeKeuanganModal()">✕</button>
+    </div>
+    <form id="form-keuangan" onsubmit="saveKeuanganForm(event)">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Tanggal Transaksi</label>
+            <input type="date" name="tanggal" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jenis Transaksi</label>
+            <select name="jenis_transaksi" class="form-control">
+              <option value="Pengeluaran">Pengeluaran Kas</option>
+              <option value="Pemasukan">Pemasukan Kas</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Keterangan Transaksi</label>
+          <input type="text" name="keterangan" class="form-control" placeholder="Contoh: Beli Pita & Bunga Plastik" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nominal (Rp)</label>
+          <input type="number" name="nominal" class="form-control" placeholder="50000" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeKeuanganModal()">Batal</button>
+        <button type="submit" class="btn btn-primary">Simpan Kas</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Print Area Container (Hidden during normal view) -->
+<div id="print-area"></div>
+
+<!-- JavaScript Scripts -->
+<script src="./js/db.js"></script>
+<script src="./js/gdrive-sync.js"></script>
+<script src="./js/modules/dashboard.js"></script>
+<script src="./js/modules/pesanan.js"></script>
+<script src="./js/modules/proses.js"></script>
+<script src="./js/modules/keuangan.js"></script>
+<script src="./js/modules/hutang.js"></script>
+<script src="./js/modules/jadwal.js"></script>
+<script src="./js/modules/laporan.js"></script>
+<script src="./js/modules/pengaturan.js"></script>
+<script src="./js/app.js"></script>
+
+</body>
+</html>
