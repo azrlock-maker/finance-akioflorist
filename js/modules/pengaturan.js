@@ -12,10 +12,17 @@ async function renderPengaturanModule() {
     alamat: '',
     telepon: '',
     website_url: '',
-    logo_path: ''
+    logo_path: '',
+    gdrive_client_id: ''
   };
 
   uploadedLogoBase64 = config.logo_path || '';
+  const activeClientId = config.gdrive_client_id || localStorage.getItem('gdrive_client_id') || '';
+
+  // Autoload GIS Auth jika client ID ada
+  if (activeClientId && typeof initGoogleDriveAuth === 'function') {
+    initGoogleDriveAuth(activeClientId);
+  }
 
   let html = `
     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap:1.5rem;">
@@ -69,7 +76,7 @@ async function renderPengaturanModule() {
                    placeholder="Contoh: https://script.google.com/macros/s/.../exec atau https://toko-papan.vercel.app"
                    value="${config.website_url || ''}">
             <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.4rem; line-height:1.4;">
-              💡 <b>Fungsi:</b> URL ini akan otomatis dimasukkan ke dalam QR Code Nota. Saat pelanggan men-scan QR Code dengan HP, browser akan membuka link ini untuk memverifikasi tanda tangan digital (<code>SIGN</code>) & keaslian nota secara otomatis.
+              💡 <b>Fungsi:</b> URL ini akan otomatis dimasukkan ke dalam QR Code Nota. Saat pelanggan men-scan QR Code dengan HP, browser akan membuka link ini untuk memverifikasi keaslian nota secara otomatis.
             </p>
           </div>
 
@@ -80,31 +87,36 @@ async function renderPengaturanModule() {
       <!-- Card Google Drive Sync -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">☁️ Integrasi Google Drive Sync</div>
+          <div class="card-title">☁️ Integrasi Google Drive Auto-Sync</div>
         </div>
 
         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
-          Hubungkan akun Google Drive Anda untuk mensinkronkan data secara otomatis antara HP dan PC tanpa server.
+          Hubungkan akun Google Drive Anda untuk mensinkronkan data pesanan & kas secara otomatis antara HP dan PC tanpa server.
         </p>
 
         <div class="form-group">
           <label class="form-label">Google OAuth Client ID</label>
           <input type="text" id="gdrive_client_id_input" class="form-control" 
                  placeholder="Contoh: 123456789-abc.apps.googleusercontent.com"
-                 value="${localStorage.getItem('gdrive_client_id') || ''}">
+                 value="${activeClientId}">
+          <button class="btn btn-secondary btn-sm" style="margin-top:0.5rem;" onclick="saveGDriveClientId()">💾 Simpan Client ID</button>
         </div>
-        <button class="btn btn-secondary btn-sm" style="margin-bottom:1.5rem;" onclick="saveGDriveClientId()">Simpan Client ID</button>
 
-        <div style="display:flex; flex-direction:column; gap:0.75rem;">
-          <button class="btn btn-secondary" onclick="loginGoogleDrive()">🔑 Hubungkan Akun Google Drive</button>
-          <button class="btn btn-success" onclick="uploadDataToDrive()">📤 Upload / Sync ke Google Drive</button>
-          <button class="btn btn-warning" onclick="downloadDataFromDrive()">📥 Download / Restore dari Google Drive</button>
+        <div style="display:flex; flex-direction:column; gap:0.75rem; margin-top:1rem;">
+          <button class="btn btn-primary" style="padding:0.8rem; font-size:0.95rem;" onclick="loginGoogleDrive()">
+            🔑 Login / Hubungkan Akun Google Drive
+          </button>
+          
+          <div style="display:flex; gap:0.75rem;">
+            <button class="btn btn-success" style="flex:1;" onclick="uploadDataToDrive()">📤 Manual Sync (Upload)</button>
+            <button class="btn btn-warning" style="flex:1;" onclick="downloadDataFromDrive()">📥 Restore (Download)</button>
+          </div>
         </div>
 
         <hr style="border-color:var(--border-color); margin:1.5rem 0;">
 
         <div class="card-title" style="font-size:0.95rem; margin-bottom:0.75rem;">💾 Backup / Restore Lokal File</div>
-        <div style="display:flex; gap:0.75rem;">
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
           <button class="btn btn-secondary btn-sm" onclick="exportBackupJSONLokal()">Download File Backup (.json)</button>
           <button class="btn btn-secondary btn-sm" onclick="document.getElementById('file-restore-input').click()">Restore File (.json)</button>
           <input type="file" id="file-restore-input" style="display:none;" accept=".json" onchange="importBackupJSONLokal(event)">
@@ -141,6 +153,7 @@ function removeLogoImage() {
 async function savePengaturanForm(e) {
   e.preventDefault();
   const form = e.target;
+  const existingConfig = await db.pengaturan.get(1) || {};
 
   await db.pengaturan.put({
     id: 1,
@@ -149,33 +162,40 @@ async function savePengaturanForm(e) {
     alamat: form.alamat.value,
     telepon: form.telepon.value,
     website_url: form.website_url.value,
-    logo_path: uploadedLogoBase64
+    logo_path: uploadedLogoBase64,
+    gdrive_client_id: existingConfig.gdrive_client_id || localStorage.getItem('gdrive_client_id') || ''
   });
 
-  alert('✅ Pengaturan toko, logo, dan link verifikasi berhasil disimpan!');
-
-  if (typeof loadHeaderStoreProfile === 'function') {
-    loadHeaderStoreProfile();
-  }
-
-  renderPengaturanModule();
+  alert('✅ Pengaturan profil toko berhasil disimpan!');
+  if (typeof loadHeaderStoreProfile === 'function') loadHeaderStoreProfile();
 }
 
-function saveGDriveClientId() {
+async function saveGDriveClientId() {
   const val = document.getElementById('gdrive_client_id_input').value.trim();
+  if (!val) {
+    alert('Masukkan Google OAuth Client ID terlebih dahulu!');
+    return;
+  }
+
   localStorage.setItem('gdrive_client_id', val);
-  if (val && typeof initGoogleDriveAuth === 'function') {
+
+  const existingConfig = await db.pengaturan.get(1) || {};
+  existingConfig.gdrive_client_id = val;
+  await db.pengaturan.put(existingConfig);
+
+  alert('✅ Google Client ID berhasil disimpan ke database!');
+  if (typeof initGoogleDriveAuth === 'function') {
     initGoogleDriveAuth(val);
   }
-  alert('Client ID berhasil disimpan!');
 }
 
+// Backup & Restore Lokal File .json
 async function exportBackupJSONLokal() {
   const jsonStr = await dbExportFullBackupJSON();
   const blob = new Blob([jsonStr], { type: 'application/json' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.setAttribute('download', `backup_finance_papanbunga_${new Date().toISOString().split('T')[0]}.json`);
+  link.setAttribute('download', `backup_papanbunga_${new Date().toISOString().split('T')[0]}.json`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -189,10 +209,10 @@ async function importBackupJSONLokal(e) {
   reader.onload = async (evt) => {
     try {
       await dbImportFullBackupJSON(evt.target.result);
-      alert('✅ Data berhasil dipulihkan dari file backup!');
+      alert('✅ Data dari file backup berhasil di-restore!');
       window.location.reload();
     } catch (err) {
-      alert(`⚠️ Gagal restore: ${err.message}`);
+      alert(`⚠️ Gagal me-restore data: ${err.message}`);
     }
   };
   reader.readAsText(file);
