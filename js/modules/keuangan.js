@@ -49,7 +49,8 @@ async function renderKeuanganModule() {
         <button class="btn btn-primary" onclick="openKeuanganModal()"><span class="icon">➕</span> Tambah Transaksi</button>
       </div>
 
-      <div class="table-responsive">
+      <!-- Tampilan Desktop (Tabel 6 Kolom) -->
+      <div class="table-responsive desktop-table-container">
         <table class="data-table">
           <thead>
             <tr>
@@ -80,6 +81,31 @@ async function renderKeuanganModule() {
             `).join('') : `<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada riwayat transaksi kas.</td></tr>`}
           </tbody>
         </table>
+      </div>
+
+      <!-- Tampilan Native Mobile Feed Cards (Khusus HP) -->
+      <div class="mobile-card-list">
+        ${allKeuangan.length > 0 ? allKeuangan.map(k => `
+          <div class="mobile-card-item">
+            <div class="mobile-card-header">
+              ${k.jenis_transaksi === 'Pemasukan' ? 
+                '<span class="badge badge-lunas">PEMASUKAN</span>' : 
+                '<span class="badge badge-belum">PENGELUARAN</span>'}
+              <small style="color:var(--text-muted);">📅 ${k.tanggal || '-'}</small>
+            </div>
+            <div class="mobile-card-body">
+              <div class="customer-name">${k.keterangan || '-'}</div>
+              ${k.no_nota ? `<div style="font-size:0.8rem; color:var(--text-muted);">Nota: ${k.no_nota}</div>` : ''}
+            </div>
+            <div class="mobile-card-meta">
+              <div>Nominal:</div>
+              <div><b style="font-size:1rem; color:${k.jenis_transaksi === 'Pemasukan' ? 'var(--success)' : 'var(--danger)'};">${formatRp(k.nominal)}</b></div>
+            </div>
+            <div class="mobile-card-actions">
+              <button class="btn btn-danger" style="width:100%;" onclick="handleHapusKeuangan(${k.id})">🗑️ Hapus Transaksi</button>
+            </div>
+          </div>
+        `).join('') : `<div style="text-align:center; padding:2rem; color:var(--text-muted);">Belum ada riwayat transaksi kas.</div>`}
       </div>
     </div>
   `;

@@ -77,6 +77,11 @@ body {
   flex-shrink: 0;
 }
 
+.logo-box:has(img), .logo-box img {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 .logo-text h1 {
   font-size: 1.1rem;
   font-weight: 800;

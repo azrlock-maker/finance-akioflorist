@@ -30,7 +30,8 @@ async function renderPesananModule() {
         </div>
       </div>
 
-      <div class="table-responsive">
+      <!-- Tampilan Desktop (Tabel 8 Kolom) -->
+      <div class="table-responsive desktop-table-container">
         <table class="data-table">
           <thead>
             <tr>
@@ -82,6 +83,37 @@ async function renderPesananModule() {
             `).join('') : `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data pesanan ditemukan.</td></tr>`}
           </tbody>
         </table>
+      </div>
+
+      <!-- Tampilan Native Mobile Feed Cards (Khusus HP) -->
+      <div class="mobile-card-list">
+        ${filtered.length > 0 ? filtered.map(p => `
+          <div class="mobile-card-item">
+            <div class="mobile-card-header">
+              <span class="nota-no">📄 ${p.no_nota || '-'}</span>
+              ${p.status_lunas ? '<span class="badge badge-lunas">LUNAS</span>' : `<span class="badge badge-belum">SISA ${formatRp(p.harga - p.dibayar)}</span>`}
+            </div>
+            <div class="mobile-card-body">
+              <div class="customer-name">${p.nama_pemesan || '-'}</div>
+              <div style="font-size:0.8rem; color:var(--text-muted);">📍 ${p.lokasi_pengantaran || '-'}</div>
+              <div style="margin-top:0.25rem; display:flex; gap:0.4rem; flex-wrap:wrap;">
+                <span class="badge badge-proses">${p.jenis_papan || '-'}</span>
+                <span class="badge badge-siap">${p.status_proses || 'Data Masuk'}</span>
+              </div>
+              <div class="ucapan-quote">"${p.ucapan || '-'}"</div>
+            </div>
+            <div class="mobile-card-meta">
+              <div>📅 Antar: <b>${p.tanggal_antar || '-'}</b></div>
+              <div>💰 Total: <b>${formatRp(p.harga)}</b></div>
+            </div>
+            <div class="mobile-card-actions">
+              ${!p.status_lunas ? `<button class="btn btn-success" onclick="handleTandaiLunas(${p.id})">✔ Lunas</button>` : ''}
+              <button class="btn btn-secondary" onclick="printNotaPesanan(${p.id})">📄 Nota QR</button>
+              <button class="btn btn-secondary" onclick="openPesananModal(${p.id})">✏️ Edit</button>
+              <button class="btn btn-danger" style="flex:0.4;" onclick="handleHapusPesanan(${p.id})">🗑️</button>
+            </div>
+          </div>
+        `).join('') : `<div style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data pesanan ditemukan.</div>`}
       </div>
     </div>
   `;

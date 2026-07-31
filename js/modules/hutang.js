@@ -37,7 +37,8 @@ async function renderHutangModule() {
         </div>
       </div>
 
-      <div class="table-responsive">
+      <!-- Tampilan Desktop (Tabel 6 Kolom) -->
+      <div class="table-responsive desktop-table-container">
         <table class="data-table">
           <thead>
             <tr>
@@ -78,6 +79,27 @@ async function renderHutangModule() {
             `).join('') : `<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">🎉 Selamat! Tidak ada penunggakan hutang pelanggan saat ini.</td></tr>`}
           </tbody>
         </table>
+      </div>
+
+      <!-- Tampilan Native Mobile Feed Cards (Khusus HP) -->
+      <div class="mobile-card-list">
+        ${rekap.length > 0 ? rekap.map(h => `
+          <div class="mobile-card-item">
+            <div class="mobile-card-header">
+              <span class="customer-name">${h.nama}</span>
+              <span class="badge badge-belum">${h.total_tunggakan} Tunggakan</span>
+            </div>
+            <div class="mobile-card-meta">
+              <div>⏳ Tunggakan: <b style="color:${h.hari_tunggak > 30 ? 'var(--danger)' : 'var(--warning)'};">${h.hari_tunggak} Hari</b></div>
+              <div>💰 Sisa: <b style="color:var(--danger); font-size:1rem;">${formatRp(h.total_hutang)}</b></div>
+            </div>
+            <div class="mobile-card-actions">
+              <button class="btn btn-warning" onclick="handleBayarCicilanPelanggan('${h.nama.replace(/'/g, "\\'")}', ${h.total_hutang})">💰 Cicil</button>
+              <button class="btn btn-success" onclick="handleBayarLunasPelanggan('${h.nama.replace(/'/g, "\\'")}')">✅ Lunas</button>
+              <button class="btn btn-secondary" onclick="printNotaGabungan('${h.nama.replace(/'/g, "\\'")}')">🧾 Nota</button>
+            </div>
+          </div>
+        `).join('') : `<div style="text-align:center; padding:2rem; color:var(--text-muted);">🎉 Selamat! Tidak ada penunggakan hutang pelanggan saat ini.</div>`}
       </div>
     </div>
   `;
