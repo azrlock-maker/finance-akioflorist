@@ -37,7 +37,7 @@ async function renderPengaturanModule() {
           <div class="form-group">
             <label class="form-label">Logo Toko (Di Tampilkan pada Nota/Invoice)</label>
             <div style="display:flex; align-items:center; gap:1rem; margin-bottom:0.75rem;">
-              <div id="logo-preview-box" style="width:70px; height:70px; border:2px dashed var(--border-color); border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:rgba(0,0,0,0.2);">
+              <div id="logo-preview-box" style="width:70px; height:70px; border:2px dashed var(--border-color); border-radius:10px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:transparent;">
                 ${uploadedLogoBase64 ? `<img src="${uploadedLogoBase64}" style="max-width:100%; max-height:100%; object-fit:contain;">` : '<span style="font-size:1.5rem;">🖼️</span>'}
               </div>
               <div>

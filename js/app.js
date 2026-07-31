@@ -58,7 +58,9 @@ async function loadHeaderStoreProfile() {
       if (config.logo_path) {
         const logoBox = document.querySelector('.logo-box');
         if (logoBox) {
-          logoBox.innerHTML = `<img src="${config.logo_path}" style="width:100%; height:100%; object-fit:contain; border-radius:8px;">`;
+          logoBox.style.background = 'transparent';
+          logoBox.style.boxShadow = 'none';
+          logoBox.innerHTML = `<img src="${config.logo_path}" style="width:100%; height:100%; object-fit:contain;">`;
         }
       }
     }
