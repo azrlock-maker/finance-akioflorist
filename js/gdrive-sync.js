@@ -7,6 +7,21 @@ const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 let tokenClient = null;
 let accessToken = localStorage.getItem('gdrive_access_token') || null;
 
+// Cek apakah token masih valid (belum kadaluarsa)
+function isTokenValid() {
+  if (!accessToken) return false;
+  const expiry = parseInt(localStorage.getItem('gdrive_token_expiry') || '0');
+  return Date.now() < expiry;
+}
+
+// Inisialisasi: hapus token yang sudah kadaluarsa agar tidak pakai token basi
+if (!isTokenValid() && accessToken) {
+  // Token ada tapi sudah habis — hapus, tapi JANGAN paksa login, tunggu user klik
+  localStorage.removeItem('gdrive_access_token');
+  localStorage.removeItem('gdrive_token_expiry');
+  accessToken = null;
+}
+
 // Status Indikator SINKRONISASI
 const syncState = {
   isOnline: navigator.onLine,
@@ -66,6 +81,9 @@ function initGoogleDriveAuth(customClientId, callback) {
         }
         accessToken = response.access_token;
         localStorage.setItem('gdrive_access_token', accessToken);
+        // Simpan waktu kadaluarsa token (1 jam = 3600 detik, kurangi 5 menit buffer)
+        const expiresIn = (response.expires_in || 3600) - 300;
+        localStorage.setItem('gdrive_token_expiry', String(Date.now() + expiresIn * 1000));
         syncState.isLoggedIn = true;
         updateSyncUI();
         if (callback) callback();
@@ -85,7 +103,9 @@ function loginGoogleDrive() {
   // Coba via GIS Token Client
   if (tokenClient) {
     try {
-      tokenClient.requestAccessToken({ prompt: 'consent' });
+      // Jika token masih valid, tidak perlu tampilkan layar izin lagi
+      const prompt = isTokenValid() ? '' : 'select_account';
+      tokenClient.requestAccessToken({ prompt });
       return;
     } catch (e) {
       console.log('[GIS Popup Error/Blocked, falling back to direct OAuth redirect]', e);
@@ -99,7 +119,7 @@ function loginGoogleDrive() {
     `redirect_uri=${encodeURIComponent(redirectUri)}&` +
     `response_type=token&` +
     `scope=${encodeURIComponent(SCOPES)}&` +
-    `prompt=consent`;
+    `prompt=select_account`;
 
   window.location.href = oauthUrl;
 }
@@ -145,6 +165,7 @@ async function uploadDataToDrive(silent = false) {
 
     if (res.status === 401) {
       localStorage.removeItem('gdrive_access_token');
+      localStorage.removeItem('gdrive_token_expiry');
       accessToken = null;
       syncState.isLoggedIn = false;
       if (!silent) alert('Sesi Google Drive telah berakhir. Silakan klik "Hubungkan Akun Google" kembali.');
