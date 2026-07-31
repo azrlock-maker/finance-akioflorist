@@ -111,6 +111,7 @@ async function dbTambahPesanan(data) {
   }
 
   if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
+  if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync');
   return pesananId;
 }
 
@@ -165,6 +166,7 @@ async function dbUpdatePesanan(id, data) {
   }
 
   if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
+  if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync');
 }
 
 // Hapus Pesanan + Transaksi Kas Terkait
@@ -175,6 +177,7 @@ async function dbHapusPesanan(id) {
   }
   await db.pesanan.delete(id);
   if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
+  if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync');
 }
 
 // Tandai Lunas Satu Pesanan
@@ -203,6 +206,7 @@ async function dbTandaiLunas(id) {
   }
 
   if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
+  if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync');
 }
 
 // Update Status Proses Papan
@@ -218,6 +222,7 @@ async function dbUpdateStatusProses(id, statusBaru) {
   }
 
   if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
+  if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync');
 }
 
 // Rekap Hutang per Pelanggan
@@ -277,6 +282,7 @@ async function dbBayarLunasPelanggan(namaPelanggan) {
   }
 
   if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
+  if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync');
 }
 
 // Bayar Cicilan / Sebagian Pelanggan
@@ -320,6 +326,7 @@ async function dbBayarSebagianPelanggan(namaPelanggan, jumlahBayar) {
   }
 
   if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
+  if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync');
 }
 
 // Export Full Data JSON untuk Backup / Drive Sync

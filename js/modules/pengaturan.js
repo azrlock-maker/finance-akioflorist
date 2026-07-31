@@ -84,11 +84,42 @@ async function renderPengaturanModule() {
         </form>
       </div>
 
-      <!-- Card Google Drive Sync (Bebas Ketik Client ID!) -->
+      <!-- Card Cloud Realtime Sync (Beda Wi-Fi / 4G OK) -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">☁️ Integrasi Google Drive Auto-Sync</div>
+          <div class="card-title">📡 Realtime Cloud Sync (PC & HP Instan)</div>
         </div>
+
+        <div style="background:rgba(37, 99, 235, 0.12); border:1px solid rgba(37, 99, 235, 0.3); border-radius:10px; padding:1rem; margin-bottom:1.25rem;">
+          <h4 style="color:#60a5fa; margin-bottom:0.3rem;">⚡ Sinkron Instan Beda Wi-Fi / Pakai Kuota 4G</h4>
+          <p style="font-size:0.8rem; color:var(--text-muted); line-height:1.4;">
+            Cukup samakan <b>PIN Sync Toko</b> di PC dan HP Anda. Setiap kali ada pesanan baru/pelunasan, data langsung ter-update di layar HP dan PC <b>kurang dari 1 detik secara otomatis</b> tanpa perlu login Google lagi!
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">PIN Sync Toko (Pasangkan HP & PC)</label>
+          <div style="display:flex; gap:0.5rem;">
+            <input type="text" id="input-store-pin" class="form-control" style="font-weight:bold; letter-spacing:1px;" value="${localStorage.getItem('store_sync_pin') || 'AKIOFLORIST'}" placeholder="AKIOFLORIST">
+            <button class="btn btn-primary" onclick="handleSaveStorePin()">🔗 Hubungkan</button>
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.4rem;">
+            💡 Masukkan PIN yang sama di HP & PC Anda agar data langsung sinkron secara otomatis.
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:1rem;">
+          <label class="form-label" style="font-size:0.85rem;">Custom Firebase Database URL (Opsional / Jika buat project sendiri)</label>
+          <input type="url" id="input-firebase-url" class="form-control" style="font-size:0.85rem;" 
+                 value="${localStorage.getItem('custom_firebase_url') || ''}" 
+                 placeholder="Contoh: https://proyek-anda-default-rtdb.asia-southeast1.firebasedatabase.app">
+          <button class="btn btn-secondary btn-sm" style="margin-top:0.5rem;" onclick="handleSaveCustomFirebaseUrl()">💾 Simpan URL Firebase Custom</button>
+        </div>
+
+        <hr style="border-color:var(--border-color); margin:1.5rem 0;">
+
+        <!-- Card Google Drive Sync (Bebas Ketik Client ID!) -->
+        <div class="card-title" style="font-size:0.95rem; margin-bottom:0.5rem;">☁️ Backup File Google Drive (Opsional)</div>
 
         <div style="background:rgba(16, 185, 129, 0.12); border:1px solid rgba(16, 185, 129, 0.3); border-radius:10px; padding:1rem; margin-bottom:1.25rem;">
           <h4 style="color:#34d399; margin-bottom:0.3rem;">✨ Google OAuth Client ID Terpasang Permanen!</h4>
@@ -193,3 +224,31 @@ async function importBackupJSONLokal(e) {
   };
   reader.readAsText(file);
 }
+
+// Handler simpan PIN Store Realtime
+function handleSaveStorePin() {
+  const pinInput = document.getElementById('input-store-pin');
+  if (pinInput && pinInput.value) {
+    if (typeof setStoreSyncPin === 'function') {
+      setStoreSyncPin(pinInput.value);
+    }
+  }
+}
+
+function handleSaveCustomFirebaseUrl() {
+  const urlInput = document.getElementById('input-firebase-url');
+  if (urlInput) {
+    const val = (urlInput.value || '').trim();
+    if (val) {
+      localStorage.setItem('custom_firebase_url', val);
+      alert('✅ Firebase Database URL Custom berhasil disimpan! Aplikasi akan menghubungkan ke Realtime DB milik Anda.');
+      if (typeof initFirebaseRealtimeSync === 'function') initFirebaseRealtimeSync();
+    } else {
+      localStorage.removeItem('custom_firebase_url');
+      alert('ℹ️ Menggunakan default Firebase Realtime DB.');
+      if (typeof initFirebaseRealtimeSync === 'function') initFirebaseRealtimeSync();
+    }
+  }
+}
+
+

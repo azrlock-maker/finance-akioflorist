@@ -30,6 +30,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (typeof updateSyncUI === 'function') updateSyncUI();
   if (typeof autoSyncBackgroundPull === 'function') autoSyncBackgroundPull();
 
+  // Inisialisasi Cloud Realtime Sync (Beda Wi-Fi OK, Realtime < 1s)
+  if (typeof initFirebaseRealtimeSync === 'function') {
+    initFirebaseRealtimeSync();
+  }
+
   // Load Store Header Logo & Nama Toko
   loadHeaderStoreProfile();
 
