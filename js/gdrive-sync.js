@@ -372,12 +372,14 @@ async function downloadDataFromDrive(silent = false) {
 // ─── Background Auto-Sync ─────────────────────────────────────────────────────
 
 function autoSyncBackgroundPush() {
+  if (typeof realtimeState !== 'undefined' && realtimeState.isConnected) return;
   if (accessToken && syncState.isOnline) {
     setTimeout(() => uploadDataToDrive(true), 500);
   }
 }
 
 function autoSyncBackgroundPull() {
+  if (typeof realtimeState !== 'undefined' && realtimeState.isConnected) return;
   if (accessToken && syncState.isOnline) {
     setTimeout(() => downloadDataFromDrive(true), 800);
   }
@@ -398,6 +400,12 @@ async function findBackupFileId() {
 // ─── Update UI Indikator Sync ──────────────────────────────────────────────────
 
 function updateSyncUI() {
+  // Jika Realtime Cloud Sync aktif, biarkan updateRealtimeUI yang mengatur tampilan badge
+  if (typeof realtimeState !== 'undefined' && realtimeState.isConnected && typeof updateRealtimeUI === 'function') {
+    updateRealtimeUI();
+    return;
+  }
+
   const badge       = document.getElementById('sync-status-badge');
   const lastSyncText = document.getElementById('sync-last-time');
 

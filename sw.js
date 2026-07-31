@@ -1,4 +1,4 @@
-const CACHE_NAME = 'papan-bunga-finance-v16';
+const CACHE_NAME = 'papan-bunga-finance-v17';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const ASSETS_TO_CACHE = [
   './css/components.css',
   './js/db.js',
   './js/gdrive-sync.js',
+  './js/firebase-sync.js',
   './js/app.js',
   './js/modules/dashboard.js',
   './js/modules/pesanan.js',

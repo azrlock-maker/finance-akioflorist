@@ -134,6 +134,7 @@ async function pushRealtimeChange(type, payload) {
   if (!firebaseDb || !realtimeState.isConnected || isRemoteUpdate) return;
 
   try {
+    isRemoteUpdate = true;
     const storeRef = firebaseDb.ref(`stores/${currentStorePin}`);
     if (type === 'pesanan' && payload && payload.id) {
       await storeRef.child(`pesanan/${payload.id}`).set(payload);
@@ -161,6 +162,8 @@ async function pushRealtimeChange(type, payload) {
     updateRealtimeUI();
   } catch (err) {
     console.error('[Realtime Push Error]', err);
+  } finally {
+    setTimeout(() => { isRemoteUpdate = false; }, 1000);
   }
 }
 
