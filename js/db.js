@@ -1,6 +1,16 @@
 // IndexedDB Manager via Dexie.js
 // Replikasi logika database.py untuk Offline-First Storage
 
+// Helper: Ambil tanggal LOKAL (bukan UTC) dalam format YYYY-MM-DD
+// Penting untuk WIB (UTC+7): jam 00:29 WIB = 1 Agustus, bukan 31 Juli
+function getTodayLocal() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 const db = new Dexie('FinancePapanBungaDB');
 
 // Definisikan Skema Tabel
@@ -182,7 +192,7 @@ async function dbTandaiLunas(id) {
   });
 
   if (selisih > 0) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayLocal();
     await db.keuangan.add({
       tanggal: today,
       jenis_transaksi: 'Pemasukan',
@@ -197,7 +207,7 @@ async function dbTandaiLunas(id) {
 
 // Update Status Proses Papan
 async function dbUpdateStatusProses(id, statusBaru) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayLocal();
   if (statusBaru === 'Papan Di Antar') {
     await db.pesanan.update(id, {
       status_proses: statusBaru,
@@ -246,7 +256,7 @@ async function dbBayarLunasPelanggan(namaPelanggan) {
   const allPesanan = await db.pesanan.toArray();
   const unpaid = allPesanan.filter(p => (p.nama_pemesan || '').trim().toUpperCase() === targetNama && (p.dibayar || 0) < (p.harga || 0));
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayLocal();
 
   for (const row of unpaid) {
     const kekurangan = row.harga - (row.dibayar || 0);
@@ -277,7 +287,7 @@ async function dbBayarSebagianPelanggan(namaPelanggan, jumlahBayar) {
     .filter(p => (p.nama_pemesan || '').trim().toUpperCase() === targetNama && (p.dibayar || 0) < (p.harga || 0))
     .sort((a, b) => (a.tanggal || '').localeCompare(b.tanggal || ''));
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayLocal();
   let sisaBayar = parseFloat(jumlahBayar) || 0;
 
   for (const row of unpaid) {
