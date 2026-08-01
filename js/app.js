@@ -10,27 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       .catch(err => console.log('[SW] Registration failed:', err));
   }
 
-  // Init Google Drive Auth if client ID exists (read from localStorage or IndexedDB)
-  let clientId = localStorage.getItem('gdrive_client_id');
-  if (!clientId) {
-    try {
-      const config = await db.pengaturan.get(1);
-      if (config && config.gdrive_client_id) {
-        clientId = config.gdrive_client_id;
-        localStorage.setItem('gdrive_client_id', clientId);
-      }
-    } catch (e) {}
-  }
-
-  if (clientId && typeof initGoogleDriveAuth === 'function') {
-    initGoogleDriveAuth(clientId);
-  }
-
-  // Update UI status sync & auto-pull data dari Cloud/Drive
-  if (typeof updateSyncUI === 'function') updateSyncUI();
-  if (typeof autoSyncBackgroundPull === 'function') autoSyncBackgroundPull();
-
-  // Inisialisasi Cloud Realtime Sync (Beda Wi-Fi OK, Realtime < 1s)
+  // Inisialisasi Cloud Realtime Sync (Beda Wi-Fi OK, Realtime < 1s, Bebas Login 1 Jam)
   if (typeof initFirebaseRealtimeSync === 'function') {
     initFirebaseRealtimeSync();
   }

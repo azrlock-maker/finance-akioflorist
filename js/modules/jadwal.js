@@ -55,7 +55,8 @@ async function renderJadwalModule() {
             </div>
           </div>
 
-          <div class="table-responsive">
+          <!-- Tampilan Desktop (Tabel 6 Kolom) -->
+          <div class="table-responsive desktop-table-container">
             <table class="data-table">
               <thead>
                 <tr>
@@ -93,6 +94,26 @@ async function renderJadwalModule() {
                 `).join('')}
               </tbody>
             </table>
+          </div>
+
+          <!-- Tampilan Native Mobile Feed Cards (Khusus HP Armada) -->
+          <div class="mobile-card-list">
+            ${grouped[tgl].map(p => `
+              <div class="mobile-card-item">
+                <div class="mobile-card-header">
+                  <span class="nota-no">📄 ${p.no_nota || '-'}</span>
+                  <span class="badge badge-proses">${p.status_proses || 'Data Masuk'}</span>
+                </div>
+                <div class="mobile-card-body">
+                  <div class="customer-name">${p.nama_pemesan || '-'}</div>
+                  <div style="font-size:0.85rem; color:#60a5fa; font-weight:600;">📍 ${p.lokasi_pengantaran || '-'}</div>
+                  <div class="ucapan-quote">"${p.ucapan || '-'}"</div>
+                </div>
+                <div class="mobile-card-actions" style="margin-top:0.5rem;">
+                  <button class="btn btn-success" style="width:100%;" onclick="handleChangeStatusProses(${p.id}, 'Papan Di Antar')">🚚 Tandai Selesai Diantar</button>
+                </div>
+              </div>
+            `).join('')}
           </div>
         </div>
       `).join('') : `<div style="text-align:center; color:var(--success); padding:3rem 0; font-weight:700;">🎉 Semua pesanan pengantaran telah selesai diantar!</div>`}
