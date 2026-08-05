@@ -69,14 +69,25 @@ async function renderJadwalModule() {
                 </tr>
               </thead>
               <tbody>
-                ${grouped[tgl].map(p => `
+                ${grouped[tgl].map(p => {
+                  const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
+                  const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
+                  const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+                  return `
                   <tr>
                     <td style="text-align:center;">
                       <input type="checkbox" class="jadwal-check-item check-group-${tgl}" value="${p.id}" 
                              onchange="onJadwalCheckChange(this)" style="width:18px; height:18px; cursor:pointer;">
                     </td>
                     <td><b>${p.no_nota || '-'}</b></td>
-                    <td><b>${p.nama_pemesan || '-'}</b></td>
+                    <td>
+                      <div style="cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem;"
+                           onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+                        <b>${p.nama_pemesan || '-'}</b>
+                        <span style="color:#25D366;">💬</span>
+                      </div>
+                      ${p.no_wa ? `<br><small style="color:#25D366; font-weight:600; cursor:pointer;" onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">📱 ${p.no_wa}</small>` : ''}
+                    </td>
                     <td>
                       <span class="badge badge-proses">${p.jenis_papan}</span><br>
                       <small style="color:var(--text-muted); font-style:italic;">"${p.ucapan || '-'}"</small>
@@ -91,29 +102,43 @@ async function renderJadwalModule() {
                       </select>
                     </td>
                   </tr>
-                `).join('')}
+                `}).join('')}
               </tbody>
             </table>
           </div>
 
           <!-- Tampilan Native Mobile Feed Cards (Khusus HP Armada) -->
           <div class="mobile-card-list">
-            ${grouped[tgl].map(p => `
+            ${grouped[tgl].map(p => {
+              const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
+              const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
+              const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+              return `
               <div class="mobile-card-item">
                 <div class="mobile-card-header">
                   <span class="nota-no">📄 ${p.no_nota || '-'}</span>
                   <span class="badge badge-proses">${p.status_proses || 'Data Masuk'}</span>
                 </div>
                 <div class="mobile-card-body">
-                  <div class="customer-name">${p.nama_pemesan || '-'}</div>
-                  <div style="font-size:0.85rem; color:#60a5fa; font-weight:600;">📍 ${p.lokasi_pengantaran || '-'}</div>
+                  <div class="customer-name" style="cursor:pointer; display:inline-flex; align-items:center; gap:0.35rem;"
+                       onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+                    <span>${p.nama_pemesan || '-'}</span>
+                    <span style="color:#25D366; font-size:1.05rem;">💬</span>
+                  </div>
+                  ${p.no_wa ? `
+                    <div style="font-size:0.82rem; color:#25D366; font-weight:600; cursor:pointer;" 
+                         onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+                      📱 ${p.no_wa}
+                    </div>
+                  ` : ''}
+                  <div style="font-size:0.85rem; color:#60a5fa; font-weight:600; margin-top:0.25rem;">📍 ${p.lokasi_pengantaran || '-'}</div>
                   <div class="ucapan-quote">"${p.ucapan || '-'}"</div>
                 </div>
                 <div class="mobile-card-actions" style="margin-top:0.5rem;">
                   <button class="btn btn-success" style="width:100%;" onclick="handleChangeStatusProses(${p.id}, 'Papan Di Antar')">🚚 Tandai Selesai Diantar</button>
                 </div>
               </div>
-            `).join('')}
+            `}).join('')}
           </div>
         </div>
       `).join('') : `<div style="text-align:center; color:var(--success); padding:3rem 0; font-weight:700;">🎉 Semua pesanan pengantaran telah selesai diantar!</div>`}

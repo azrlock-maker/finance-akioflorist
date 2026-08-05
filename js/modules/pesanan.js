@@ -2,6 +2,34 @@
 
 let pesananSearchKeyword = '';
 
+function getWaUrl(noWa, nama = '', noNota = '') {
+  if (!noWa) return '';
+  let cleaned = String(noWa).replace(/\D/g, '');
+  if (!cleaned) return '';
+  if (cleaned.startsWith('0')) {
+    cleaned = '62' + cleaned.substring(1);
+  } else if (cleaned.startsWith('8')) {
+    cleaned = '62' + cleaned;
+  }
+  let msg = `Halo ${nama || 'Kak'}`;
+  if (noNota) msg += `, terkait pesanan ${noNota}`;
+  msg += ` di Akio Florist:`;
+
+  return `https://wa.me/${cleaned}?text=${encodeURIComponent(msg)}`;
+}
+
+function handleWaClick(e, noWa, nama, noNota, id) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  if (noWa && String(noWa).trim()) {
+    const url = getWaUrl(noWa, nama, noNota);
+    if (url) window.open(url, '_blank');
+  } else {
+    if (confirm(`Nomor WhatsApp untuk pemesan "${nama || '-'}" belum diisi.\n\nApakah Anda ingin mengedit pesanan ini untuk menambahkan Nomor WA?`)) {
+      openPesananModal(id);
+    }
+  }
+}
+
 async function renderPesananModule() {
   const container = document.getElementById('view-pesanan');
   if (!container) return;
@@ -13,8 +41,9 @@ async function renderPesananModule() {
     if (!pesananSearchKeyword) return true;
     const kw = pesananSearchKeyword.toLowerCase();
     return (p.nama_pemesan && p.nama_pemesan.toLowerCase().includes(kw)) ||
-           (p.no_nota && p.no_nota.toLowerCase().includes(kw)) ||
-           (p.jenis_papan && p.jenis_papan.toLowerCase().includes(kw));
+      (p.no_wa && p.no_wa.toLowerCase().includes(kw)) ||
+      (p.no_nota && p.no_nota.toLowerCase().includes(kw)) ||
+      (p.jenis_papan && p.jenis_papan.toLowerCase().includes(kw));
   });
 
   const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
@@ -24,7 +53,7 @@ async function renderPesananModule() {
       <div class="card-header">
         <div class="card-title">📦 Daftar Pesanan Papan Bunga</div>
         <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
-          <input type="text" class="form-control" style="width:240px;" placeholder="🔍 Cari pemesan / nota..." 
+          <input type="text" class="form-control" style="width:240px;" placeholder="🔍 Cari pemesan / WA / nota..." 
                  value="${pesananSearchKeyword}" oninput="onSearchPesanan(this.value)">
           <button class="btn btn-primary" onclick="openPesananModal()"><span class="icon">➕</span> Tambah Order</button>
         </div>
@@ -37,7 +66,7 @@ async function renderPesananModule() {
             <tr>
               <th>No. Nota</th>
               <th>Tanggal</th>
-              <th>Pemesan & Lokasi</th>
+              <th>Pemesan & No. WA</th>
               <th>Jenis & Ucapan</th>
               <th>Harga & Bayar</th>
               <th>Status Bayar</th>
@@ -46,7 +75,11 @@ async function renderPesananModule() {
             </tr>
           </thead>
           <tbody>
-            ${filtered.length > 0 ? filtered.map(p => `
+            ${filtered.length > 0 ? filtered.map(p => {
+    const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
+    const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
+    const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+    return `
               <tr>
                 <td><b>${p.no_nota || '-'}</b></td>
                 <td>
@@ -54,8 +87,24 @@ async function renderPesananModule() {
                   <small style="color:var(--info);">Antar: ${p.tanggal_antar || '-'}</small>
                 </td>
                 <td>
-                  <b>${p.nama_pemesan || '-'}</b><br>
-                  <small style="color:var(--text-muted);">${p.lokasi_pengantaran || '-'}</small>
+                  <div style="cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem;" 
+                       title="Klik untuk chat WhatsApp pemesan"
+                       onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+                    <b style="color:var(--text-main); font-size:0.95rem;">${p.nama_pemesan || '-'}</b>
+                    <span style="color:#25D366; font-size:0.95rem;">💬</span>
+                  </div><br>
+                  ${p.no_wa ? `
+                    <small style="color:#25D366; font-weight:600; cursor:pointer;" 
+                           onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})"
+                           title="Klik untuk chat WhatsApp">
+                      📱 ${p.no_wa}
+                    </small><br>
+                  ` : `
+                    <small style="color:var(--text-muted); cursor:pointer; font-style:italic;" onclick="openPesananModal(${p.id})">
+                      📱 <span style="text-decoration:underline;">+ Tambah WA</span>
+                    </small><br>
+                  `}
+                  <small style="color:var(--text-muted);">📍 ${p.lokasi_pengantaran || '-'}</small>
                 </td>
                 <td>
                   <span class="badge badge-proses">${p.jenis_papan || '-'}</span><br>
@@ -80,22 +129,41 @@ async function renderPesananModule() {
                   </div>
                 </td>
               </tr>
-            `).join('') : `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data pesanan ditemukan.</td></tr>`}
+            `}).join('') : `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data pesanan ditemukan.</td></tr>`}
           </tbody>
         </table>
       </div>
 
       <!-- Tampilan Native Mobile Feed Cards (Khusus HP) -->
       <div class="mobile-card-list">
-        ${filtered.length > 0 ? filtered.map(p => `
+        ${filtered.length > 0 ? filtered.map(p => {
+      const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
+      const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
+      const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+      return `
           <div class="mobile-card-item">
             <div class="mobile-card-header">
               <span class="nota-no">📄 ${p.no_nota || '-'}</span>
               ${p.status_lunas ? '<span class="badge badge-lunas">LUNAS</span>' : `<span class="badge badge-belum">SISA ${formatRp(p.harga - p.dibayar)}</span>`}
             </div>
             <div class="mobile-card-body">
-              <div class="customer-name">${p.nama_pemesan || '-'}</div>
-              <div style="font-size:0.8rem; color:var(--text-muted);">📍 ${p.lokasi_pengantaran || '-'}</div>
+              <div class="customer-name" style="cursor:pointer; display:inline-flex; align-items:center; gap:0.35rem;" 
+                   onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+                <span>${p.nama_pemesan || '-'}</span>
+                <span style="color:#25D366; font-size:1.05rem;">💬</span>
+              </div>
+              ${p.no_wa ? `
+                <div style="font-size:0.82rem; color:#25D366; font-weight:600; cursor:pointer; margin-top:0.15rem;" 
+                     onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+                  📱 ${p.no_wa} (Chat WA)
+                </div>
+              ` : `
+                <div style="font-size:0.78rem; color:var(--text-muted); cursor:pointer; margin-top:0.15rem; font-style:italic;" 
+                     onclick="openPesananModal(${p.id})">
+                  📱 <span style="text-decoration:underline;">+ Tambah WA Pemesan</span>
+                </div>
+              `}
+              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">📍 ${p.lokasi_pengantaran || '-'}</div>
               <div style="margin-top:0.25rem; display:flex; gap:0.4rem; flex-wrap:wrap;">
                 <span class="badge badge-proses">${p.jenis_papan || '-'}</span>
                 <span class="badge badge-siap">${p.status_proses || 'Data Masuk'}</span>
@@ -113,7 +181,7 @@ async function renderPesananModule() {
               <button class="btn btn-danger" style="flex:0.4;" onclick="handleHapusPesanan(${p.id})">🗑️</button>
             </div>
           </div>
-        `).join('') : `<div style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data pesanan ditemukan.</div>`}
+        `}).join('') : `<div style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data pesanan ditemukan.</div>`}
       </div>
     </div>
   `;
@@ -136,10 +204,11 @@ async function openPesananModal(id = null) {
     tanggal: new Date().toISOString().split('T')[0],
     tanggal_antar: new Date().toISOString().split('T')[0],
     nama_pemesan: '',
+    no_wa: '',
     lokasi_pengantaran: '',
     jenis_papan: 'Papan Single',
     ucapan: '',
-    harga: 300000,
+    harga: ,
     dibayar: 0,
     status_lunas: 0
   };
@@ -158,6 +227,7 @@ async function openPesananModal(id = null) {
   form.tanggal.value = data.tanggal || new Date().toISOString().split('T')[0];
   form.tanggal_antar.value = data.tanggal_antar || data.tanggal || new Date().toISOString().split('T')[0];
   form.nama_pemesan.value = data.nama_pemesan || '';
+  if (form.no_wa) form.no_wa.value = data.no_wa || '';
   form.lokasi_pengantaran.value = data.lokasi_pengantaran || '';
   form.jenis_papan.value = data.jenis_papan || 'Papan Single';
   form.ucapan.value = data.ucapan || '';
@@ -180,6 +250,7 @@ async function savePesananForm(e) {
     tanggal: form.tanggal.value,
     tanggal_antar: form.tanggal_antar.value,
     nama_pemesan: form.nama_pemesan.value,
+    no_wa: form.no_wa ? form.no_wa.value.trim() : '',
     lokasi_pengantaran: form.lokasi_pengantaran.value,
     jenis_papan: form.jenis_papan.value,
     ucapan: form.ucapan.value,
@@ -350,7 +421,7 @@ async function printNotaPesanan(id) {
       
       <div style="margin-top: 15px;">
         <b>Ditujukan kepada:</b><br>
-        Pemesan : <b>${p.nama_pemesan}</b><br>
+        Pemesan : <b>${p.nama_pemesan}</b> ${p.no_wa ? `(WA: ${p.no_wa})` : ''}<br>
         Lokasi Pengantaran : ${p.lokasi_pengantaran || '-'}<br>
         Tanggal Pengantaran : <b>${p.tanggal_antar || p.tanggal}</b>
       </div>

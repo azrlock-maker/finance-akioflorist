@@ -15,7 +15,7 @@ const db = new Dexie('FinancePapanBungaDB');
 
 // Definisikan Skema Tabel
 db.version(1).stores({
-  pesanan: '++id, no_nota, tanggal, tanggal_antar, tgl_status_antar, nama_pemesan, jenis_papan, status_lunas, status_proses',
+  pesanan: '++id, no_nota, tanggal, tanggal_antar, tgl_status_antar, nama_pemesan, no_wa, jenis_papan, status_lunas, status_proses',
   keuangan: '++id, no_nota, tanggal, jenis_transaksi, nominal',
   pengaturan: 'id'
 });
@@ -89,6 +89,7 @@ async function dbTambahPesanan(data) {
     no_nota,
     tanggal,
     nama_pemesan: nama_pemesan_clean,
+    no_wa: (data.no_wa || '').trim(),
     lokasi_pengantaran: data.lokasi_pengantaran || '',
     jenis_papan: data.jenis_papan || '',
     ucapan: data.ucapan || '-',
@@ -130,6 +131,7 @@ async function dbUpdatePesanan(id, data) {
   await db.pesanan.update(id, {
     tanggal,
     nama_pemesan: nama_pemesan_clean,
+    no_wa: (data.no_wa || '').trim(),
     lokasi_pengantaran: data.lokasi_pengantaran || '',
     jenis_papan: data.jenis_papan || '',
     ucapan: data.ucapan || '-',
@@ -238,10 +240,14 @@ async function dbGetRekapHutangPelanggan() {
       if (!map[namaKey]) {
         map[namaKey] = {
           nama: (p.nama_pemesan || '').trim(),
+          no_wa: p.no_wa || '',
           total_tunggakan: 0,
           total_hutang: 0,
           tgl_awal: p.tanggal_antar || p.tgl_status_antar || p.tanggal
         };
+      }
+      if (!map[namaKey].no_wa && p.no_wa) {
+        map[namaKey].no_wa = p.no_wa;
       }
       map[namaKey].total_tunggakan += 1;
       map[namaKey].total_hutang += (harga - dibayar);

@@ -23,6 +23,18 @@ async function renderProsesModule() {
     }
   });
 
+  // Urutkan kartu di setiap kolom (khususnya 'Papan Di Antar' agar pengantaran terbaru berada paling atas)
+  Object.keys(columns).forEach(col => {
+    columns[col].sort((a, b) => {
+      const tglA = a.tgl_status_antar || a.tanggal_antar || a.tanggal || '';
+      const tglB = b.tgl_status_antar || b.tanggal_antar || b.tanggal || '';
+      if (tglA !== tglB) {
+        return tglB.localeCompare(tglA);
+      }
+      return (b.id || 0) - (a.id || 0);
+    });
+  });
+
   let html = `
     <div class="card">
       <div class="card-header">
@@ -38,10 +50,17 @@ async function renderProsesModule() {
               <span class="badge badge-proses">${columns[colName].length}</span>
             </div>
             <div class="kanban-cards-wrapper">
-              ${columns[colName].length > 0 ? columns[colName].map(p => `
+              ${columns[colName].length > 0 ? columns[colName].map(p => {
+                const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
+                const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
+                const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+                return `
                 <div class="kanban-card">
                   <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                    <b>${p.nama_pemesan || '-'}</b>
+                    <b style="cursor:pointer; color:var(--text-main);" 
+                       onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+                      ${p.nama_pemesan || '-'} <span style="color:#25D366; font-size:0.85rem;">💬</span>
+                    </b>
                     <small style="color:var(--text-muted);">${p.no_nota || ''}</small>
                   </div>
                   <div style="font-size:0.8rem; color:var(--info); margin:0.3rem 0;">

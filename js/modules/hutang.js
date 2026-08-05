@@ -51,9 +51,19 @@ async function renderHutangModule() {
             </tr>
           </thead>
           <tbody>
-            ${rekap.length > 0 ? rekap.map(h => `
+            ${rekap.length > 0 ? rekap.map(h => {
+              const safeNama = (h.nama || '').replace(/'/g, "\\'");
+              const safeWa = (h.no_wa || '').replace(/'/g, "\\'");
+              return `
               <tr>
-                <td><b>${h.nama}</b></td>
+                <td>
+                  <div style="cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem;"
+                       onclick="handleWaClick(event, '${safeWa}', '${safeNama}', 'Tunggakan Sisa Hutang', null)">
+                    <b>${h.nama}</b>
+                    <span style="color:#25D366;">💬</span>
+                  </div>
+                  ${h.no_wa ? `<br><small style="color:#25D366; font-weight:600; cursor:pointer;" onclick="handleWaClick(event, '${safeWa}', '${safeNama}', 'Tunggakan Sisa Hutang', null)">📱 ${h.no_wa}</small>` : ''}
+                </td>
                 <td><span class="badge badge-belum">${h.total_tunggakan} Pesanan</span></td>
                 <td><small style="color:var(--text-muted);">${h.tgl_awal || '-'}</small></td>
                 <td>
@@ -64,42 +74,55 @@ async function renderHutangModule() {
                 <td><b style="color:var(--danger); font-size:1rem;">${formatRp(h.total_hutang)}</b></td>
                 <td style="text-align:right;">
                   <div style="display:inline-flex; gap:0.35rem; flex-wrap:wrap; justify-content:flex-end;">
-                    <button class="btn btn-warning btn-sm" onclick="handleBayarCicilanPelanggan('${h.nama.replace(/'/g, "\\'")}', ${h.total_hutang})">
+                    <button class="btn btn-warning btn-sm" onclick="handleBayarCicilanPelanggan('${safeNama}', ${h.total_hutang})">
                       💰 Cicil
                     </button>
-                    <button class="btn btn-success btn-sm" onclick="handleBayarLunasPelanggan('${h.nama.replace(/'/g, "\\'")}')">
+                    <button class="btn btn-success btn-sm" onclick="handleBayarLunasPelanggan('${safeNama}')">
                       ✅ Bayar Lunas
                     </button>
-                    <button class="btn btn-secondary btn-sm" title="Kwitansi Nota Gabungan" onclick="printNotaGabungan('${h.nama.replace(/'/g, "\\'")}')">
+                    <button class="btn btn-secondary btn-sm" title="Kwitansi Nota Gabungan" onclick="printNotaGabungan('${safeNama}')">
                       🧾 Nota Gabungan
                     </button>
                   </div>
                 </td>
               </tr>
-            `).join('') : `<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">🎉 Selamat! Tidak ada penunggakan hutang pelanggan saat ini.</td></tr>`}
+            `}).join('') : `<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">🎉 Selamat! Tidak ada penunggakan hutang pelanggan saat ini.</td></tr>`}
           </tbody>
         </table>
       </div>
 
       <!-- Tampilan Native Mobile Feed Cards (Khusus HP) -->
       <div class="mobile-card-list">
-        ${rekap.length > 0 ? rekap.map(h => `
+        ${rekap.length > 0 ? rekap.map(h => {
+          const safeNama = (h.nama || '').replace(/'/g, "\\'");
+          const safeWa = (h.no_wa || '').replace(/'/g, "\\'");
+          return `
           <div class="mobile-card-item">
             <div class="mobile-card-header">
-              <span class="customer-name">${h.nama}</span>
+              <span class="customer-name" style="cursor:pointer; display:inline-flex; align-items:center; gap:0.35rem;"
+                    onclick="handleWaClick(event, '${safeWa}', '${safeNama}', 'Tunggakan Sisa Hutang', null)">
+                <span>${h.nama}</span>
+                <span style="color:#25D366; font-size:1.05rem;">💬</span>
+              </span>
               <span class="badge badge-belum">${h.total_tunggakan} Tunggakan</span>
             </div>
+            ${h.no_wa ? `
+              <div style="font-size:0.82rem; color:#25D366; font-weight:600; cursor:pointer; padding:0 1rem;"
+                   onclick="handleWaClick(event, '${safeWa}', '${safeNama}', 'Tunggakan Sisa Hutang', null)">
+                📱 ${h.no_wa} (Chat WA Remind)
+              </div>
+            ` : ''}
             <div class="mobile-card-meta">
               <div>⏳ Tunggakan: <b style="color:${h.hari_tunggak > 30 ? 'var(--danger)' : 'var(--warning)'};">${h.hari_tunggak} Hari</b></div>
               <div>💰 Sisa: <b style="color:var(--danger); font-size:1rem;">${formatRp(h.total_hutang)}</b></div>
             </div>
             <div class="mobile-card-actions">
-              <button class="btn btn-warning" onclick="handleBayarCicilanPelanggan('${h.nama.replace(/'/g, "\\'")}', ${h.total_hutang})">💰 Cicil</button>
-              <button class="btn btn-success" onclick="handleBayarLunasPelanggan('${h.nama.replace(/'/g, "\\'")}')">✅ Lunas</button>
-              <button class="btn btn-secondary" onclick="printNotaGabungan('${h.nama.replace(/'/g, "\\'")}')">🧾 Nota</button>
+              <button class="btn btn-warning" onclick="handleBayarCicilanPelanggan('${safeNama}', ${h.total_hutang})">💰 Cicil</button>
+              <button class="btn btn-success" onclick="handleBayarLunasPelanggan('${safeNama}')">✅ Lunas</button>
+              <button class="btn btn-secondary" onclick="printNotaGabungan('${safeNama}')">🧾 Nota</button>
             </div>
           </div>
-        `).join('') : `<div style="text-align:center; padding:2rem; color:var(--text-muted);">🎉 Selamat! Tidak ada penunggakan hutang pelanggan saat ini.</div>`}
+        `}).join('') : `<div style="text-align:center; padding:2rem; color:var(--text-muted);">🎉 Selamat! Tidak ada penunggakan hutang pelanggan saat ini.</div>`}
       </div>
     </div>
   `;
