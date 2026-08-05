@@ -11,11 +11,8 @@ function getWaUrl(noWa, nama = '', noNota = '') {
   } else if (cleaned.startsWith('8')) {
     cleaned = '62' + cleaned;
   }
-  let msg = `Halo ${nama || 'Kak'}`;
-  if (noNota) msg += `, terkait pesanan ${noNota}`;
-  msg += ` di Akio Florist:`;
 
-  return `https://wa.me/${cleaned}?text=${encodeURIComponent(msg)}`;
+  return `https://wa.me/${cleaned}`;
 }
 
 function handleWaClick(e, noWa, nama, noNota, id) {
