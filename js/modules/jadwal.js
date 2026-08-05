@@ -92,7 +92,15 @@ async function renderJadwalModule() {
                       <span class="badge badge-proses">${p.jenis_papan}</span><br>
                       <small style="color:var(--text-muted); font-style:italic;">"${p.ucapan || '-'}"</small>
                     </td>
-                    <td>📍 ${p.lokasi_pengantaran || '-'}</td>
+                    <td>
+                      ${(() => {
+                        const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
+                        return `
+                          📍 ${p.lokasi_pengantaran || '-'}
+                          ${gmapsUrl ? `<br><a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; font-size:0.8rem; font-weight:600; text-decoration:none;">🗺️ Buka Google Maps</a>` : ''}
+                        `;
+                      })()}
+                    </td>
                     <td>
                       <select class="form-control" style="font-size:0.8rem; padding:0.3rem;" onchange="handleChangeStatusProses(${p.id}, this.value)">
                         <option value="Data Masuk" ${p.status_proses === 'Data Masuk' ? 'selected' : ''}>Data Masuk</option>
@@ -113,6 +121,7 @@ async function renderJadwalModule() {
               const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
               const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
               const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+              const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
               return `
               <div class="mobile-card-item">
                 <div class="mobile-card-header">
@@ -131,7 +140,10 @@ async function renderJadwalModule() {
                       📱 ${p.no_wa}
                     </div>
                   ` : ''}
-                  <div style="font-size:0.85rem; color:#60a5fa; font-weight:600; margin-top:0.25rem;">📍 ${p.lokasi_pengantaran || '-'}</div>
+                  <div style="font-size:0.85rem; color:#60a5fa; font-weight:600; margin-top:0.25rem; display:flex; justify-content:space-between; align-items:center;">
+                    <span>📍 ${p.lokasi_pengantaran || '-'}</span>
+                    ${gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; font-size:0.8rem; font-weight:600; text-decoration:none;">🗺️ Maps</a>` : ''}
+                  </div>
                   <div class="ucapan-quote">"${p.ucapan || '-'}"</div>
                 </div>
                 <div class="mobile-card-actions" style="margin-top:0.5rem;">
@@ -158,8 +170,8 @@ function onJadwalCheckChange(el) {
   updateBulkButtonState();
 }
 
-function toggleSelectAllGroup(tglGroup, isChecked) {
-  const checkboxes = document.querySelectorAll(`.check-group-${tglGroup}`);
+function toggleSelectAllJadwalGroup(tgl, isChecked) {
+  const checkboxes = document.querySelectorAll(`.check-group-${tgl}`);
   checkboxes.forEach(cb => {
     cb.checked = isChecked;
     const id = parseInt(cb.value);
@@ -173,20 +185,15 @@ function toggleSelectAllGroup(tglGroup, isChecked) {
 }
 
 function updateBulkButtonState() {
-  const btn = document.getElementById('btn-bulk-antar');
-  const badge = document.getElementById('bulk-count-badge');
   const count = selectedJadwalIds.size;
-
-  if (badge) badge.innerText = `(${count})`;
-
+  const btn = document.getElementById('btn-bulk-antar');
+  const countSpan = document.getElementById('selected-jadwal-count');
   if (btn) {
     if (count > 0) {
-      btn.disabled = false;
-      btn.classList.add('btn-success');
-      btn.style.opacity = '1';
+      btn.style.display = 'inline-flex';
+      if (countSpan) countSpan.innerText = count;
     } else {
-      btn.disabled = true;
-      btn.style.opacity = '0.5';
+      btn.style.display = 'none';
     }
   }
 }
@@ -196,9 +203,13 @@ async function handleBulkUpdateStatusAntar() {
   if (count === 0) return;
 
   if (confirm(`Ubah status ${count} papan bunga terpilih sekaligus menjadi "Papan Di Antar"?`)) {
+    let gpsData = null;
+    if (typeof captureCurrentGpsLocation === 'function') {
+      gpsData = await captureCurrentGpsLocation();
+    }
     const ids = Array.from(selectedJadwalIds);
     for (const id of ids) {
-      await dbUpdateStatusProses(id, 'Papan Di Antar');
+      await dbUpdateStatusProses(id, 'Papan Di Antar', gpsData);
     }
 
     selectedJadwalIds.clear();
@@ -210,7 +221,11 @@ async function handleBulkUpdateStatusAntar() {
 }
 
 async function handleChangeStatusProses(id, statusBaru) {
-  await dbUpdateStatusProses(id, statusBaru);
+  let gpsData = null;
+  if (statusBaru === 'Papan Di Antar' && typeof captureCurrentGpsLocation === 'function') {
+    gpsData = await captureCurrentGpsLocation();
+  }
+  await dbUpdateStatusProses(id, statusBaru, gpsData);
   renderJadwalModule();
   if (typeof renderDashboardModule === 'function') renderDashboardModule();
   if (typeof renderProsesModule === 'function') renderProsesModule();

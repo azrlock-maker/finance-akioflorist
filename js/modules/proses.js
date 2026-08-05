@@ -81,6 +81,8 @@ async function renderProsesModule() {
                   const displayNota = escapeHtml(p.no_nota || '');
                   const displayTanggal = escapeHtml(p.tanggal_antar || p.tanggal || '-');
 
+                  const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
+
                   return `
                   <div class="kanban-card">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -90,9 +92,11 @@ async function renderProsesModule() {
                       </b>
                       <small style="color:var(--text-muted);">${displayNota}</small>
                     </div>
-                    <div style="font-size:0.8rem; color:var(--info); margin:0.3rem 0;">
-                      ${displayJenis} | Antar: ${displayTanggal}
+                    <div style="font-size:0.8rem; color:var(--info); margin:0.3rem 0; display:flex; justify-content:space-between; align-items:center;">
+                      <span>${displayJenis} | Antar: ${displayTanggal}</span>
+                      ${gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; font-weight:600; font-size:0.75rem; text-decoration:none; margin-left:0.5rem;" title="Lihat Lokasi di Google Maps">📍 Maps</a>` : ''}
                     </div>
+                    ${p.lokasi_pengantaran ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.3rem;">📍 ${escapeHtml(p.lokasi_pengantaran)}</div>` : ''}
                     <div style="font-size:0.78rem; color:var(--text-muted); font-style:italic; margin-bottom:0.6rem;">
                       "${displayUcapan}"
                     </div>
@@ -134,9 +138,14 @@ async function renderProsesModule() {
 
 async function handleChangeStatusProses(id, newStatus) {
   try {
-    await dbUpdateStatusProses(id, newStatus);
+    let gpsData = null;
+    if (newStatus === 'Papan Di Antar' && typeof captureCurrentGpsLocation === 'function') {
+      gpsData = await captureCurrentGpsLocation();
+    }
+    await dbUpdateStatusProses(id, newStatus, gpsData);
     renderProsesModule();
     if (typeof renderDashboardModule === 'function') renderDashboardModule();
+    if (typeof renderJadwalModule === 'function') renderJadwalModule();
   } catch (err) {
     console.error('[Proses] Error updating status:', err);
   }

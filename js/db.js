@@ -24,6 +24,47 @@ db.version(2).stores({
   pesanan: '++id, no_nota, tanggal, tanggal_antar, tgl_status_antar, nama_pemesan, no_wa, jenis_papan, status_lunas, status_proses'
 });
 
+db.version(3).stores({
+  pesanan: '++id, no_nota, tanggal, tanggal_antar, tgl_status_antar, nama_pemesan, no_wa, jenis_papan, status_lunas, status_proses, gps_lat, gps_lng'
+});
+
+// Global Helper HTML5 GPS Geolocation
+function captureCurrentGpsLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      console.warn('[GPS] Geolocation tidak didukung browser ini.');
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        resolve({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          timestamp: new Date().toISOString()
+        });
+      },
+      (err) => {
+        console.warn('[GPS] Gagal membaca GPS atau akses ditolak:', err.message || err);
+        resolve(null);
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+  });
+}
+
+// Global Helper Google Maps URL Generator
+function getGmapsUrl(p) {
+  if (!p) return '';
+  if (p.gps_lat && p.gps_lng) {
+    return `https://www.google.com/maps?q=${p.gps_lat},${p.gps_lng}`;
+  }
+  if (p.lokasi_pengantaran && p.lokasi_pengantaran.trim()) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.lokasi_pengantaran.trim())}`;
+  }
+  return '';
+}
+
 // Global Helper WhatsApp
 function getWaUrl(noWa, nama = '', noNota = '') {
   if (!noWa) return '';
@@ -241,14 +282,20 @@ async function dbTandaiLunas(id) {
   if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync');
 }
 
-// Update Status Proses Papan
-async function dbUpdateStatusProses(id, statusBaru) {
+// Update Status Proses Papan & Capture GPS jika 'Papan Di Antar'
+async function dbUpdateStatusProses(id, statusBaru, gpsData = null) {
   const today = getTodayLocal();
   if (statusBaru === 'Papan Di Antar') {
-    await db.pesanan.update(id, {
+    const updatePayload = {
       status_proses: statusBaru,
       tgl_status_antar: today
-    });
+    };
+    if (gpsData && gpsData.lat && gpsData.lng) {
+      updatePayload.gps_lat = gpsData.lat;
+      updatePayload.gps_lng = gpsData.lng;
+      updatePayload.gps_antar = `https://www.google.com/maps?q=${gpsData.lat},${gpsData.lng}`;
+    }
+    await db.pesanan.update(id, updatePayload);
   } else {
     await db.pesanan.update(id, { status_proses: statusBaru });
   }

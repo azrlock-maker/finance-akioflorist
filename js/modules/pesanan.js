@@ -101,7 +101,13 @@ async function renderPesananModule() {
                       📱 <span style="text-decoration:underline;">+ Tambah WA</span>
                     </small><br>
                   `}
-                  <small style="color:var(--text-muted);">📍 ${p.lokasi_pengantaran || '-'}</small>
+                  <small style="color:var(--text-muted);">
+                    📍 ${p.lokasi_pengantaran || '-'}
+                    ${(() => {
+                      const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
+                      return gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; text-decoration:none; font-weight:600; margin-left:0.25rem;">[📍 Maps]</a>` : '';
+                    })()}
+                  </small>
                 </td>
                 <td>
                   <span class="badge badge-proses">${p.jenis_papan || '-'}</span><br>
@@ -137,6 +143,7 @@ async function renderPesananModule() {
       const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
       const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
       const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+      const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
       return `
           <div class="mobile-card-item">
             <div class="mobile-card-header">
@@ -160,7 +167,10 @@ async function renderPesananModule() {
                   📱 <span style="text-decoration:underline;">+ Tambah WA Pemesan</span>
                 </div>
               `}
-              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">📍 ${p.lokasi_pengantaran || '-'}</div>
+              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem; display:flex; justify-content:space-between; align-items:center;">
+                <span>📍 ${p.lokasi_pengantaran || '-'}</span>
+                ${gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; font-weight:600; text-decoration:none;">📍 Maps</a>` : ''}
+              </div>
               <div style="margin-top:0.25rem; display:flex; gap:0.4rem; flex-wrap:wrap;">
                 <span class="badge badge-proses">${p.jenis_papan || '-'}</span>
                 <span class="badge badge-siap">${p.status_proses || 'Data Masuk'}</span>
