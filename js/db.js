@@ -15,10 +15,43 @@ const db = new Dexie('FinancePapanBungaDB');
 
 // Definisikan Skema Tabel
 db.version(1).stores({
-  pesanan: '++id, no_nota, tanggal, tanggal_antar, tgl_status_antar, nama_pemesan, no_wa, jenis_papan, status_lunas, status_proses',
+  pesanan: '++id, no_nota, tanggal, tanggal_antar, tgl_status_antar, nama_pemesan, jenis_papan, status_lunas, status_proses',
   keuangan: '++id, no_nota, tanggal, jenis_transaksi, nominal',
   pengaturan: 'id'
 });
+
+db.version(2).stores({
+  pesanan: '++id, no_nota, tanggal, tanggal_antar, tgl_status_antar, nama_pemesan, no_wa, jenis_papan, status_lunas, status_proses'
+});
+
+// Global Helper WhatsApp
+function getWaUrl(noWa, nama = '', noNota = '') {
+  if (!noWa) return '';
+  let cleaned = String(noWa).replace(/\D/g, '');
+  if (!cleaned) return '';
+  if (cleaned.startsWith('0')) {
+    cleaned = '62' + cleaned.substring(1);
+  } else if (cleaned.startsWith('8')) {
+    cleaned = '62' + cleaned;
+  }
+  let msg = `Halo ${nama || 'Kak'}`;
+  if (noNota) msg += `, terkait pesanan ${noNota}`;
+  msg += ` di Akio Florist:`;
+
+  return `https://wa.me/${cleaned}?text=${encodeURIComponent(msg)}`;
+}
+
+function handleWaClick(e, noWa, nama, noNota, id) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  if (noWa && String(noWa).trim()) {
+    const url = getWaUrl(noWa, nama, noNota);
+    if (url) window.open(url, '_blank');
+  } else {
+    if (confirm(`Nomor WhatsApp untuk pemesan "${nama || '-'}" belum diisi.\n\nApakah Anda ingin mengedit pesanan ini untuk menambahkan Nomor WA?`)) {
+      if (typeof openPesananModal === 'function') openPesananModal(id);
+    }
+  }
+}
 
 // Seed data pengaturan & auto-import data_initial.json jika database kosong
 async function seedDefaultSettings() {
