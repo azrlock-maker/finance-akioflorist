@@ -206,10 +206,10 @@ async function openPesananModal(id = null) {
     nama_pemesan: '',
     no_wa: '',
     lokasi_pengantaran: '',
-    jenis_papan: 'Papan Single',
+    jenis_papan: '',
     ucapan: '',
-    harga: ,
-    dibayar: 0,
+    harga: '',
+    dibayar: '',
     status_lunas: 0
   };
 
@@ -229,10 +229,10 @@ async function openPesananModal(id = null) {
   form.nama_pemesan.value = data.nama_pemesan || '';
   if (form.no_wa) form.no_wa.value = data.no_wa || '';
   form.lokasi_pengantaran.value = data.lokasi_pengantaran || '';
-  form.jenis_papan.value = data.jenis_papan || 'Papan Single';
+  form.jenis_papan.value = data.jenis_papan || '';
   form.ucapan.value = data.ucapan || '';
-  form.harga.value = data.harga || 0;
-  form.dibayar.value = data.dibayar || 0;
+  form.harga.value = (data.harga !== undefined && data.harga !== null && data.harga !== '') ? data.harga : '';
+  form.dibayar.value = (data.dibayar !== undefined && data.dibayar !== null && data.dibayar !== '') ? data.dibayar : '';
 
   modal.classList.add('active');
 }
@@ -246,17 +246,23 @@ async function savePesananForm(e) {
   const form = e.target;
   const id = form.pesanan_id.value;
 
+  const inputHarga = parseFloat(form.harga.value);
+  const inputDibayar = parseFloat(form.dibayar.value);
+
+  const harga = isNaN(inputHarga) ? 300000 : inputHarga;
+  const dibayar = isNaN(inputDibayar) ? 0 : inputDibayar;
+
   const data = {
     tanggal: form.tanggal.value,
     tanggal_antar: form.tanggal_antar.value,
     nama_pemesan: form.nama_pemesan.value,
     no_wa: form.no_wa ? form.no_wa.value.trim() : '',
     lokasi_pengantaran: form.lokasi_pengantaran.value,
-    jenis_papan: form.jenis_papan.value,
+    jenis_papan: form.jenis_papan.value.trim() || 'Papan Single',
     ucapan: form.ucapan.value,
-    harga: parseFloat(form.harga.value) || 0,
-    dibayar: parseFloat(form.dibayar.value) || 0,
-    status_lunas: (parseFloat(form.dibayar.value) >= parseFloat(form.harga.value)) ? 1 : 0
+    harga,
+    dibayar,
+    status_lunas: (dibayar >= harga) ? 1 : 0
   };
 
   if (id) {

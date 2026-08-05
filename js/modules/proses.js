@@ -5,7 +5,7 @@ async function renderProsesModule() {
   if (!container) return;
 
   const allPesanan = await db.pesanan.toArray();
-  
+
   // Filter pesanan aktif (bukan yang sudah 'Papan Di Antar' lama)
   const columns = {
     'Data Masuk': [],
@@ -51,10 +51,10 @@ async function renderProsesModule() {
             </div>
             <div class="kanban-cards-wrapper">
               ${columns[colName].length > 0 ? columns[colName].map(p => {
-                const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
-                const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
-                const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
-                return `
+    const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
+    const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
+    const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+    return `
                 <div class="kanban-card">
                   <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <b style="cursor:pointer; color:var(--text-main);" 
