@@ -430,7 +430,7 @@
     visibility: hidden;
   }
   #print-area, #print-area * {
-    visibility: visible;
+    visibility: visible !important;
   }
   #print-area {
     position: absolute;
@@ -439,5 +439,13 @@
     width: 100%;
     color: #000 !important;
     background: #fff !important;
+  }
+  #print-area svg {
+    display: inline-block !important;
+    visibility: visible !important;
+  }
+  #print-area img {
+    visibility: visible !important;
+    display: inline-block !important;
   }
 }

@@ -197,10 +197,23 @@ async function printNotaGabungan(namaPelanggan) {
 
   let qrDataBase64 = '';
   if (typeof qrcode !== 'undefined') {
-    const qrObj = qrcode(0, 'M');
-    qrObj.addData(qrText);
-    qrObj.make();
-    qrDataBase64 = qrObj.createDataURL(4, 2);
+    try {
+      const qrObj = qrcode(0, 'L');
+      qrObj.addData(qrText);
+      qrObj.make();
+      qrDataBase64 = qrObj.createDataURL(4, 2);
+    } catch (qrErr1) {
+      console.warn('[QR Code Hutang] Full URL too long, trying shorter data...', qrErr1);
+      try {
+        const shortData = `GABUNGAN|${targetNama}|${signature}`;
+        const qrObj2 = qrcode(0, 'M');
+        qrObj2.addData(shortData);
+        qrObj2.make();
+        qrDataBase64 = qrObj2.createDataURL(4, 2);
+      } catch (qrErr2) {
+        console.error('[QR Code Hutang] Gagal generate QR Code:', qrErr2);
+      }
+    }
   }
 
   const logoHtml = config.logo_path ? `<img src="${config.logo_path}" alt="Logo Toko" style="max-height: 80px; max-width: 100px; margin-right: 15px;">` : '';
@@ -306,6 +319,19 @@ async function printNotaGabungan(namaPelanggan) {
       </table>
     </div>
   `;
+  // Tunggu semua gambar (logo & QR) selesai dimuat sebelum print
+  const allImages = printArea.querySelectorAll('img');
+  const imageLoadPromises = Array.from(allImages).map(img => {
+    if (img.complete) return Promise.resolve();
+    return new Promise(resolve => {
+      img.onload = resolve;
+      img.onerror = resolve;
+    });
+  });
 
-  window.print();
+  Promise.all(imageLoadPromises).then(() => {
+    setTimeout(() => {
+      window.print();
+    }, 200);
+  });
 }

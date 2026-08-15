@@ -353,21 +353,35 @@ async function printNotaPesanan(id) {
 
   const qrText = targetUrl.includes('?') ? `${targetUrl}&${qrUrlParams.toString()}` : `${targetUrl}?${qrUrlParams.toString()}`;
 
-  // Build QR Code Image
-  let qrDataBase64 = '';
+  // Build QR Code Image as base64 PNG (reliable for printing across all browsers)
+  let qrDataUrl = '';
   if (typeof qrcode !== 'undefined') {
     try {
-      const qrObj = qrcode(0, 'M');
+      // Strategy 1: Generate QR with full URL
+      const qrObj = qrcode(0, 'L');
       qrObj.addData(qrText);
       qrObj.make();
-      qrDataBase64 = qrObj.createDataURL(4, 2);
-    } catch (qrErr) {
-      console.error('[QR Code] Gagal generate QR Code:', qrErr);
-      qrDataBase64 = '';
+      qrDataUrl = qrObj.createDataURL(4, 2);
+    } catch (qrErr1) {
+      console.warn('[QR Code] Full URL too long, trying shorter data...', qrErr1);
+      try {
+        // Strategy 2: Use shorter data if URL was too long
+        const shortData = `${p.no_nota}|${signature}`;
+        const qrObj2 = qrcode(0, 'M');
+        qrObj2.addData(shortData);
+        qrObj2.make();
+        qrDataUrl = qrObj2.createDataURL(4, 2);
+      } catch (qrErr2) {
+        console.error('[QR Code] Gagal generate QR Code:', qrErr2);
+      }
     }
   } else {
-    console.warn('[QR Code] Library qrcode-generator belum ter-load. QR Code tidak akan tampil.');
+    console.warn('[QR Code] Library qrcode-generator belum ter-load.');
   }
+
+  const qrHtml = qrDataUrl
+    ? `<img src="${qrDataUrl}" alt="QR Code Verifikasi" style="width: 110px; height: 110px; border: 1px solid #ddd; padding: 4px; background: #fff; image-rendering: pixelated;">`
+    : `<div style="width:110px; height:110px; border:2px dashed #ccc; display:flex; align-items:center; justify-content:center; font-size:10px; color:#999; text-align:center; background:#fff;">QR Code<br>Tidak Tersedia</div>`;
 
   const isLunas = p.status_lunas === 1 || p.dibayar >= p.harga;
   const watermarkCss = isLunas ? `
@@ -416,6 +430,7 @@ async function printNotaPesanan(id) {
       .info-table th { background: #eee; text-align: left; }
       .total-row { font-weight: bold; background: #f9f9f9; }
       .status-badge { display: inline-block; padding: 5px 10px; border-radius: 5px; color: white; background-color: ${isLunas ? '#28a745' : '#dc3545'}; font-weight: bold; }
+      #print-area img { display: inline-block !important; visibility: visible !important; max-width: 100%; }
     </style>
 
     <div class="invoice-box">
@@ -487,7 +502,7 @@ async function printNotaPesanan(id) {
             </p>
           </td>
           <td style="width: 30%; text-align: right; vertical-align: top;">
-            ${qrDataBase64 ? `<img src="${qrDataBase64}" alt="QR Code Verifikasi" style="width: 110px; height: 110px; border: 1px solid #ddd; padding: 4px;"><br>` : ''}
+            ${qrHtml}<br>
             <span style="font-size: 10px; color: #777; font-family: monospace;">SIGN: ${signature}</span>
           </td>
         </tr>
@@ -495,7 +510,22 @@ async function printNotaPesanan(id) {
     </div>
   `;
 
-  window.print();
+  // Tunggu semua gambar (logo & QR) selesai dimuat sebelum print
+  const allImages = printArea.querySelectorAll('img');
+  const imageLoadPromises = Array.from(allImages).map(img => {
+    if (img.complete) return Promise.resolve();
+    return new Promise(resolve => {
+      img.onload = resolve;
+      img.onerror = resolve; // tetap lanjut print walau gambar error
+    });
+  });
+
+  Promise.all(imageLoadPromises).then(() => {
+    // Tambah delay kecil agar layout stabil
+    setTimeout(() => {
+      window.print();
+    }, 200);
+  });
 }
 
 // === FUNGSI PERIKSA QR CODE VERIFIKASI STANDALONE DARI URL ===
