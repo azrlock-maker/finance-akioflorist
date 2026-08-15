@@ -356,10 +356,17 @@ async function printNotaPesanan(id) {
   // Build QR Code Image
   let qrDataBase64 = '';
   if (typeof qrcode !== 'undefined') {
-    const qrObj = qrcode(0, 'M');
-    qrObj.addData(qrText);
-    qrObj.make();
-    qrDataBase64 = qrObj.createDataURL(4, 2);
+    try {
+      const qrObj = qrcode(0, 'M');
+      qrObj.addData(qrText);
+      qrObj.make();
+      qrDataBase64 = qrObj.createDataURL(4, 2);
+    } catch (qrErr) {
+      console.error('[QR Code] Gagal generate QR Code:', qrErr);
+      qrDataBase64 = '';
+    }
+  } else {
+    console.warn('[QR Code] Library qrcode-generator belum ter-load. QR Code tidak akan tampil.');
   }
 
   const isLunas = p.status_lunas === 1 || p.dibayar >= p.harga;

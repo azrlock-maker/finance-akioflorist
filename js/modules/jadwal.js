@@ -37,7 +37,7 @@ async function renderJadwalModule() {
         ${pendingPesanan.length > 0 ? `
           <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
             <button id="btn-bulk-antar" class="btn btn-success" disabled onclick="handleBulkUpdateStatusAntar()">
-              🚚 Ubah <span id="bulk-count-badge">(0)</span> Papan Terpilih ➔ Papan Di Antar
+              🚚 Ubah <span id="bulk-count-badge">0</span> Papan Terpilih ➔ Papan Di Antar
             </button>
           </div>
         ` : ''}
@@ -49,7 +49,7 @@ async function renderJadwalModule() {
             <span>🗓️ Tanggal Antar: ${tgl} ${tgl === todayStr ? '⚠️ (HARI INI!)' : ''}</span>
             <div style="display:flex; align-items:center; gap:0.75rem;">
               <label style="font-size:0.8rem; cursor:pointer; color:var(--text-muted);">
-                <input type="checkbox" onchange="toggleSelectAllGroup('${tgl}', this.checked)" style="transform:scale(1.1); margin-right:4px;"> Pilih Semua Tgl Ini
+                <input type="checkbox" onchange="toggleSelectAllJadwalGroup('${tgl}', this.checked)" style="transform:scale(1.1); margin-right:4px;"> Pilih Semua Tgl Ini
               </label>
               <span class="badge badge-proses">${grouped[tgl].length} Papan Belum Antar</span>
             </div>
@@ -76,7 +76,7 @@ async function renderJadwalModule() {
                   return `
                   <tr>
                     <td style="text-align:center;">
-                      <input type="checkbox" class="jadwal-check-item check-group-${tgl}" value="${p.id}" 
+                      <input type="checkbox" class="jadwal-check-item" data-group="${tgl}" value="${p.id}" 
                              onchange="onJadwalCheckChange(this)" style="width:18px; height:18px; cursor:pointer;">
                     </td>
                     <td><b>${p.no_nota || '-'}</b></td>
@@ -171,7 +171,7 @@ function onJadwalCheckChange(el) {
 }
 
 function toggleSelectAllJadwalGroup(tgl, isChecked) {
-  const checkboxes = document.querySelectorAll(`.check-group-${tgl}`);
+  const checkboxes = document.querySelectorAll(`.jadwal-check-item[data-group="${tgl}"]`);
   checkboxes.forEach(cb => {
     cb.checked = isChecked;
     const id = parseInt(cb.value);
@@ -187,13 +187,16 @@ function toggleSelectAllJadwalGroup(tgl, isChecked) {
 function updateBulkButtonState() {
   const count = selectedJadwalIds.size;
   const btn = document.getElementById('btn-bulk-antar');
-  const countSpan = document.getElementById('selected-jadwal-count');
+  const countSpan = document.getElementById('bulk-count-badge');
   if (btn) {
     if (count > 0) {
-      btn.style.display = 'inline-flex';
+      btn.disabled = false;
+      btn.style.opacity = '1';
       if (countSpan) countSpan.innerText = count;
     } else {
-      btn.style.display = 'none';
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      if (countSpan) countSpan.innerText = '0';
     }
   }
 }
