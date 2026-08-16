@@ -191,6 +191,7 @@ async function renderPesananModule(forceFullRender = false) {
         <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
           <input type="text" id="pesanan-search-input" class="form-control" style="width:240px;" placeholder="🔍 Cari pemesan / WA / nota..." 
                  value="${pesananSearchKeyword}" oninput="onSearchPesanan(this.value)">
+          <button class="btn btn-secondary" onclick="openNotaInstanModal()" title="Cetak Nota Instan Tanpa Simpan Database"><span class="icon">🖨️</span> Nota Instan</button>
           <button class="btn btn-primary" onclick="openPesananModal()"><span class="icon">➕</span> Tambah Order</button>
         </div>
       </div>
@@ -356,12 +357,76 @@ async function generateInvoiceDigitalSignature(no_nota, tanggal, nama_pemesan, h
   }
 }
 
-// === FUNGSI CETAK NOTA LENGKAP DENGAN LOGO, WATERMARK & QR CODE VERIFIKASI BARCODE ===
-async function printNotaPesanan(id) {
-  const p = await db.pesanan.get(id);
-  const config = await db.pengaturan.get(1) || {};
+// === MODAL BUAT NOTA INSTAN (TANPA SIMPAN DATABASE) ===
+function openNotaInstanModal() {
+  const modal = document.getElementById('modal-nota-instan');
+  const form = document.getElementById('form-nota-instan');
+  if (!modal || !form) return;
 
+  form.reset();
+
+  // Set tanggal hari ini secara default
+  const today = new Date().toISOString().split('T')[0];
+  const tglInput = document.getElementById('nota-instan-tgl');
+  const tglAntarInput = document.getElementById('nota-instan-tgl-antar');
+  const noNotaInput = document.getElementById('nota-instan-no');
+
+  if (tglInput) tglInput.value = today;
+  if (tglAntarInput) tglAntarInput.value = today;
+  
+  // Format nomor nota acak otomatis yang rapi tapi tetap bisa diubah
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  const dateStr = today.replace(/-/g, '').substring(2);
+  if (noNotaInput) noNotaInput.value = `NOTA-${dateStr}-${randomSuffix}`;
+
+  modal.classList.add('active');
+}
+
+function closeNotaInstanModal() {
+  const modal = document.getElementById('modal-nota-instan');
+  if (modal) modal.classList.remove('active');
+}
+
+async function handleCetakNotaInstan(e) {
+  if (e) e.preventDefault();
+  const form = document.getElementById('form-nota-instan');
+  if (!form) return;
+
+  const formData = new FormData(form);
+  const harga = parseFloat(formData.get('harga')) || 0;
+  const dibayar = parseFloat(formData.get('dibayar')) || 0;
+  const noNota = (formData.get('no_nota') || '').trim() || `MANUAL-${Date.now().toString().slice(-6)}`;
+  const tanggal = formData.get('tanggal') || new Date().toISOString().split('T')[0];
+  const tanggalAntar = formData.get('tanggal_antar') || tanggal;
+  const namaPemesan = (formData.get('nama_pemesan') || '').trim() || 'Pelanggan';
+  const noWa = (formData.get('no_wa') || '').trim();
+  const lokasiPengantaran = (formData.get('lokasi_pengantaran') || '').trim();
+  const jenisPapan = (formData.get('jenis_papan') || '').trim() || 'Papan Bunga';
+  const ucapan = (formData.get('ucapan') || '').trim();
+  const isLunas = (harga > 0 && dibayar >= harga) ? 1 : 0;
+
+  const adhocPesanan = {
+    no_nota: noNota,
+    tanggal: tanggal,
+    tanggal_antar: tanggalAntar,
+    nama_pemesan: namaPemesan,
+    no_wa: noWa,
+    lokasi_pengantaran: lokasiPengantaran,
+    jenis_papan: jenisPapan,
+    harga: harga,
+    dibayar: dibayar,
+    status_lunas: isLunas,
+    ucapan: ucapan
+  };
+
+  closeNotaInstanModal();
+  await printInvoiceObject(adhocPesanan);
+}
+
+// === FUNGSI UTAMA CETAK NOTA LENGKAP DENGAN LOGO, WATERMARK & QR CODE VERIFIKASI ===
+async function printInvoiceObject(p) {
   if (!p) return;
+  const config = await db.pengaturan.get(1) || {};
 
   const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
 
@@ -409,7 +474,7 @@ async function printNotaPesanan(id) {
     ? `<img src="${qrDataUrl}" alt="QR Code Verifikasi" style="width: 110px; height: 110px; border: 1px solid #ddd; padding: 4px; background: #fff;">`
     : `<div style="width:110px; height:110px; border:2px dashed #ccc; display:flex; align-items:center; justify-content:center; font-size:10px; color:#999; text-align:center; background:#fff;">QR Code<br>Tidak Tersedia</div>`;
 
-  const isLunas = p.status_lunas === 1 || p.dibayar >= p.harga;
+  const isLunas = p.status_lunas === 1 || (p.harga > 0 && p.dibayar >= p.harga);
   const watermarkCss = isLunas ? `
     .watermark {
       position: fixed;
@@ -487,7 +552,7 @@ async function printNotaPesanan(id) {
       <thead><tr><th>Deskripsi Pesanan</th><th style="width: 200px; text-align: right;">Total / Harga</th></tr></thead>
       <tbody>
         <tr>
-          <td><b>Jenis/Ukuran Papan:</b> ${p.jenis_papan}<br><br><b>Catatan Ucapan Tertulis:</b><br><i>"${p.ucapan}"</i></td>
+          <td><b>Jenis/Ukuran Papan:</b> ${p.jenis_papan}<br><br><b>Catatan Ucapan Tertulis:</b><br><i>"${p.ucapan || '-'}"</i></td>
           <td style="text-align: right; vertical-align: bottom;">${formatRp(p.harga)}</td>
         </tr>
         <tr class="total-row"><td style="text-align: right;">TOTAL BAYAR</td><td style="text-align: right; font-size: 18px;">${formatRp(p.harga)}</td></tr>
@@ -530,6 +595,16 @@ async function printNotaPesanan(id) {
       printWin.print();
     }, 400);
   };
+}
+
+// Wrapper cetak nota untuk data pesanan yang tersimpan di database
+async function printNotaPesanan(id) {
+  const p = await db.pesanan.get(id);
+  if (!p) {
+    alert('Data pesanan tidak ditemukan!');
+    return;
+  }
+  await printInvoiceObject(p);
 }
 
 // === FUNGSI PERIKSA QR CODE VERIFIKASI STANDALONE DARI URL ===

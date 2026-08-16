@@ -85,7 +85,9 @@
           <h2 id="current-page-title">Dashboard Utama</h2>
         </div>
         <div class="header-actions">
-          <!-- Fitur Realtime Sync bekerja otomatis di background -->
+          <button class="btn btn-secondary btn-sm" onclick="openNotaInstanModal()" style="display:inline-flex; align-items:center; gap:0.35rem;" title="Cetak Nota Cepat tanpa simpan ke database">
+            <span class="icon">🖨️</span> Buat Nota Instan
+          </button>
         </div>
       </header>
 
@@ -246,6 +248,79 @@
     </div>
   </div>
 
+  <!-- Modal Form Buat Nota Instan (Tanpa Simpan Database) -->
+  <div class="modal-overlay" id="modal-nota-instan">
+    <div class="modal-content" style="max-width: 650px;">
+      <div class="modal-header">
+        <div class="modal-title" style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <span>🖨️ Buat Nota Instan</span>
+          <span style="font-size:0.75rem; color:#fbbf24; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.35); padding:2px 8px; border-radius:12px; font-weight:600;">⚡ Tanpa Simpan Database</span>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="closeNotaInstanModal()">✕</button>
+      </div>
+      <form id="form-nota-instan" onsubmit="handleCetakNotaInstan(event)">
+        <div class="modal-body">
+          <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: var(--radius-md); padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 0.83rem; color: #93c5fd; line-height: 1.4;">
+            💡 <b>Fitur Cetak Bebas:</b> Nota akan langsung dicetak / disimpan PDF lengkap dengan Logo Toko, QR Code Verifikasi & Tanda Tangan Digital resmi <b>tanpa mempengaruhi pembukuan atau database pesanan</b>.
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">No. Nota (Bisa Diedit Bebas)</label>
+              <input type="text" name="no_nota" id="nota-instan-no" class="form-control" placeholder="Contoh: NOTA-MANUAL-001" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tanggal Nota</label>
+              <input type="date" name="tanggal" id="nota-instan-tgl" class="form-control" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Nama Pemesan / Ditujukan Kepada</label>
+              <input type="text" name="nama_pemesan" class="form-control" placeholder="Contoh: Bapak Hendra / PT Mandiri" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">No. WhatsApp Pemesan (Opsional)</label>
+              <input type="tel" name="no_wa" class="form-control" placeholder="Contoh: 081234567890">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Tanggal Pengantaran (Opsional)</label>
+              <input type="date" name="tanggal_antar" id="nota-instan-tgl-antar" class="form-control">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Lokasi Pengantaran (Opsional)</label>
+              <input type="text" name="lokasi_pengantaran" class="form-control" placeholder="Contoh: Gedung Graha Nusantara">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Jenis / Deskripsi Barang</label>
+              <input type="text" name="jenis_papan" class="form-control" placeholder="Contoh: Papan Bunga Wedding (2x1m)" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Total Harga (Rp)</label>
+              <input type="number" name="harga" class="form-control" placeholder="Contoh: 350000" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jumlah Uang Muka / Telah Dibayar (Rp)</label>
+            <input type="number" name="dibayar" class="form-control" placeholder="Isi 0 jika belum bayar, atau isi sama dg total jika lunas">
+            <small style="color:var(--text-muted); font-size:0.75rem;">*Jika jumlah dibayar sama atau lebih dari total harga, nota otomatis bertanda watermark <b>LUNAS</b>.</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Catatan / Ucapan Tertulis di Nota (Opsional)</label>
+            <textarea name="ucapan" class="form-control" rows="2" placeholder="Contoh: Selamat & Sukses atas Pembukaan Cabang Baru..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeNotaInstanModal()">Batal</button>
+          <button type="submit" class="btn btn-primary">🖨️ Cetak / Download Nota</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Floating Action Button (+) Khusus Mobile HP -->
   <button class="mobile-fab" onclick="openPesananModal()" title="Tambah Pesanan Baru">➕</button>
 
@@ -257,18 +332,18 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
   <!-- JavaScript Scripts dengan Cache Buster Versioning v29 -->
-  <script src="./js/db.js?v=32"></script>
-  <script src="./js/gdrive-sync.js?v=32"></script>
-  <script src="./js/firebase-sync.js?v=32"></script>
-  <script src="./js/modules/dashboard.js?v=32"></script>
-  <script src="./js/modules/pesanan.js?v=32"></script>
-  <script src="./js/modules/proses.js?v=32"></script>
-  <script src="./js/modules/keuangan.js?v=32"></script>
-  <script src="./js/modules/hutang.js?v=32"></script>
-  <script src="./js/modules/jadwal.js?v=32"></script>
-  <script src="./js/modules/laporan.js?v=32"></script>
-  <script src="./js/modules/pengaturan.js?v=32"></script>
-  <script src="./js/app.js?v=32"></script>
+  <script src="./js/db.js?v=33"></script>
+  <script src="./js/gdrive-sync.js?v=33"></script>
+  <script src="./js/firebase-sync.js?v=33"></script>
+  <script src="./js/modules/dashboard.js?v=33"></script>
+  <script src="./js/modules/pesanan.js?v=33"></script>
+  <script src="./js/modules/proses.js?v=33"></script>
+  <script src="./js/modules/keuangan.js?v=33"></script>
+  <script src="./js/modules/hutang.js?v=33"></script>
+  <script src="./js/modules/jadwal.js?v=33"></script>
+  <script src="./js/modules/laporan.js?v=33"></script>
+  <script src="./js/modules/pengaturan.js?v=33"></script>
+  <script src="./js/app.js?v=33"></script>
 
 </body>
 
