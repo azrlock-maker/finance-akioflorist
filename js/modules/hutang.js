@@ -218,120 +218,121 @@ async function printNotaGabungan(namaPelanggan) {
 
   const logoHtml = config.logo_path ? `<img src="${config.logo_path}" alt="Logo Toko" style="max-height: 80px; max-width: 100px; margin-right: 15px;">` : '';
 
-  const printArea = document.getElementById('print-area');
-  printArea.innerHTML = `
-    <style>
-      .invoice-box {
-        position: relative;
-        max-width: 800px;
-        margin: auto;
-        padding: 30px;
-        border: 1px solid #eee;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
-        font-size: 14px;
-        line-height: 22px;
-        color: #555;
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      }
-      .top-table { width: 100%; text-align: left; margin-bottom: 20px; }
-      .title { font-size: 28px; font-weight: bold; color: #333; text-transform: uppercase; }
-      .info-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
-      .info-table th, .info-table td { padding: 8px 10px; border: 1px solid #ddd; }
-      .info-table th { background: #eee; text-align: left; }
-      .total-row { font-weight: bold; background: #f9f9f9; }
-    </style>
+  const qrImgTag = qrDataBase64
+    ? `<img src="${qrDataBase64}" alt="QR Code Verifikasi" style="width: 110px; height: 110px; border: 1px solid #ddd; padding: 4px; background: #fff;"><br>`
+    : '';
 
-    <div class="invoice-box">
-      <table class="top-table">
+  // Build full HTML document for print popup
+  const printHtml = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Nota Gabungan - ${targetNama}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 22px; color: #555; background: #fff; }
+  .invoice-box {
+    position: relative; max-width: 800px; margin: auto; padding: 30px;
+    border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.15);
+  }
+  .top-table { width: 100%; text-align: left; margin-bottom: 20px; }
+  .title { font-size: 28px; font-weight: bold; color: #333; text-transform: uppercase; }
+  .info-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+  .info-table th, .info-table td { padding: 8px 10px; border: 1px solid #ddd; }
+  .info-table th { background: #eee; text-align: left; }
+  .total-row { font-weight: bold; background: #f9f9f9; }
+  img { display: inline-block; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .invoice-box { box-shadow: none; border: none; }
+  }
+</style>
+</head><body>
+  <div class="invoice-box">
+    <table class="top-table">
+      <tr>
+        ${logoHtml ? `<td style="width: 15%; vertical-align: top;">${logoHtml}</td>` : ''}
+        <td class="title" style="width: ${logoHtml ? '50%' : '65%'}; vertical-align: top;">
+          <span style="font-size: 30px; color: #000; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">${config.nama_toko || 'AKIO FLORIST'}</span><br>
+          <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; letter-spacing: 2px;">${config.tagline || 'SPECIALIST PAPAN BUNGA'}</span><br>
+          <span style="font-size: 11px; font-weight: normal; color: #555;">${config.alamat || ''} ${config.telepon ? '| WA: ' + config.telepon : ''}</span><br><br>
+          <span style="font-size: 17px; text-decoration: underline; color:#dc3545;">REKAP NOTA GABUNGAN TAGIHAN</span>
+        </td>
+        <td style="text-align: right; vertical-align: top;">
+          <b>Jenis:</b> NOTA GABUNGAN<br>
+          <b>Tanggal:</b> ${todayStr}<br>
+          <b>Pelanggan:</b> <span style="font-size:16px; font-weight:bold; color:#000;">${targetNama}</span>
+        </td>
+      </tr>
+    </table>
+    <hr style="border: 0; border-top: 1px solid #eee;">
+    <p style="margin-top:10px;">Daftar rincian pesanan papan bunga yang belum dilunasi:</p>
+    <table class="info-table">
+      <thead>
         <tr>
-          ${logoHtml ? `<td style="width: 15%; vertical-align: top;">${logoHtml}</td>` : ''}
-          <td class="title" style="width: ${logoHtml ? '50%' : '65%'}; vertical-align: top;">
-            <span style="font-size: 30px; color: #000; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">${config.nama_toko || 'AKIO FLORIST'}</span><br>
-            <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; letter-spacing: 2px;">${config.tagline || 'SPECIALIST PAPAN BUNGA'}</span><br>
-            <span style="font-size: 11px; font-weight: normal; color: #555;">${config.alamat || ''} ${config.telepon ? '| WA: ' + config.telepon : ''}</span><br><br>
-            <span style="font-size: 17px; text-decoration: underline; color:#dc3545;">REKAP NOTA GABUNGAN TAGIHAN</span>
-          </td>
-          <td style="text-align: right; vertical-align: top;">
-            <b>Jenis:</b> NOTA GABUNGAN<br>
-            <b>Tanggal:</b> ${todayStr}<br>
-            <b>Pelanggan:</b> <span style="font-size:16px; font-weight:bold; color:#000;">${targetNama}</span>
-          </td>
+          <th>No. Nota</th>
+          <th>Tgl Antar / Pesan</th>
+          <th>Jenis & Ucapan</th>
+          <th style="text-align:right;">Harga</th>
+          <th style="text-align:right;">Telah Dibayar</th>
+          <th style="text-align:right;">Sisa Tagihan</th>
         </tr>
-      </table>
-      <hr style="border: 0; border-top: 1px solid #eee;">
-      
-      <p style="margin-top:10px;">Daftar rincian pesanan papan bunga yang belum dilunasi:</p>
-
-      <table class="info-table">
-        <thead>
+      </thead>
+      <tbody>
+        ${unpaid.map(p => `
           <tr>
-            <th>No. Nota</th>
-            <th>Tgl Antar / Pesan</th>
-            <th>Jenis & Ucapan</th>
-            <th style="text-align:right;">Harga</th>
-            <th style="text-align:right;">Telah Dibayar</th>
-            <th style="text-align:right;">Sisa Tagihan</th>
+            <td><b>${p.no_nota || '-'}</b></td>
+            <td>${p.tanggal_antar || p.tanggal || '-'}</td>
+            <td><b>${p.jenis_papan}</b><br><small style="color:#666;">"${p.ucapan}"</small></td>
+            <td style="text-align:right;">${formatRp(p.harga)}</td>
+            <td style="text-align:right; color:#28a745;">${formatRp(p.dibayar)}</td>
+            <td style="text-align:right; color:#dc3545;"><b>${formatRp(p.harga - p.dibayar)}</b></td>
           </tr>
-        </thead>
-        <tbody>
-          ${unpaid.map(p => `
-            <tr>
-              <td><b>${p.no_nota || '-'}</b></td>
-              <td>${p.tanggal_antar || p.tanggal || '-'}</td>
-              <td>
-                <b>${p.jenis_papan}</b><br>
-                <small style="color:#666;">"${p.ucapan}"</small>
-              </td>
-              <td style="text-align:right;">${formatRp(p.harga)}</td>
-              <td style="text-align:right; color:#28a745;">${formatRp(p.dibayar)}</td>
-              <td style="text-align:right; color:#dc3545;"><b>${formatRp(p.harga - p.dibayar)}</b></td>
-            </tr>
-          `).join('')}
-          <tr class="total-row">
-            <td colspan="3" style="text-align:right;">TOTAL HARGA PESANAN</td>
-            <td colspan="3" style="text-align:right; font-size:15px;">${formatRp(totalHargaSemua)}</td>
-          </tr>
-          <tr class="total-row" style="color:#28a745;">
-            <td colspan="3" style="text-align:right;">TOTAL DIBAYAR / DP</td>
-            <td colspan="3" style="text-align:right; font-size:15px;">${formatRp(totalDibayarSemua)}</td>
-          </tr>
-          <tr class="total-row" style="color:#dc3545; background:#fff0f0;">
-            <td colspan="3" style="text-align:right; font-size:16px;">TOTAL SISA TAGIHAN GABUNGAN</td>
-            <td colspan="3" style="text-align:right; font-size:18px; font-weight:bold;">${formatRp(totalSisaHutang)}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <table style="width: 100%; margin-top: 40px;">
-        <tr>
-          <td style="width: 70%; text-align: left; color: #777; vertical-align: top;">
-            <p>Silakan lakukan pelunasan tagihan ke pihak <b>${config.nama_toko || 'AKIO FLORIST'}</b>.</p>
-            <p style="font-size: 11px; margin-top: 15px;">
-              * Rekap Nota Gabungan ini dicetak secara resmi.<br>
-              Silakan <i>scan</i> QR Code di samping untuk verifikasi keaslian tagihan.
-            </p>
-          </td>
-          <td style="width: 30%; text-align: right; vertical-align: top;">
-            ${qrDataBase64 ? `<img src="${qrDataBase64}" alt="QR Code Verifikasi" style="width: 110px; height: 110px; border: 1px solid #ddd; padding: 4px;"><br>` : ''}
-            <span style="font-size: 10px; color: #777; font-family: monospace;">SIGN: ${signature}</span>
-          </td>
+        `).join('')}
+        <tr class="total-row">
+          <td colspan="3" style="text-align:right;">TOTAL HARGA PESANAN</td>
+          <td colspan="3" style="text-align:right; font-size:15px;">${formatRp(totalHargaSemua)}</td>
         </tr>
-      </table>
-    </div>
-  `;
-  // Tunggu semua gambar (logo & QR) selesai dimuat sebelum print
-  const allImages = printArea.querySelectorAll('img');
-  const imageLoadPromises = Array.from(allImages).map(img => {
-    if (img.complete) return Promise.resolve();
-    return new Promise(resolve => {
-      img.onload = resolve;
-      img.onerror = resolve;
-    });
-  });
+        <tr class="total-row" style="color:#28a745;">
+          <td colspan="3" style="text-align:right;">TOTAL DIBAYAR / DP</td>
+          <td colspan="3" style="text-align:right; font-size:15px;">${formatRp(totalDibayarSemua)}</td>
+        </tr>
+        <tr class="total-row" style="color:#dc3545; background:#fff0f0;">
+          <td colspan="3" style="text-align:right; font-size:16px;">TOTAL SISA TAGIHAN GABUNGAN</td>
+          <td colspan="3" style="text-align:right; font-size:18px; font-weight:bold;">${formatRp(totalSisaHutang)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <table style="width: 100%; margin-top: 40px;">
+      <tr>
+        <td style="width: 70%; text-align: left; color: #777; vertical-align: top;">
+          <p>Silakan lakukan pelunasan tagihan ke pihak <b>${config.nama_toko || 'AKIO FLORIST'}</b>.</p>
+          <p style="font-size: 11px; margin-top: 15px;">
+            * Rekap Nota Gabungan ini dicetak secara resmi.<br>
+            Silakan <i>scan</i> QR Code di samping untuk verifikasi keaslian tagihan.
+          </p>
+        </td>
+        <td style="width: 30%; text-align: right; vertical-align: top;">
+          ${qrImgTag}
+          <span style="font-size: 10px; color: #777; font-family: monospace;">SIGN: ${signature}</span>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body></html>`;
 
-  Promise.all(imageLoadPromises).then(() => {
+  // Open popup window for print — bypasses all @media print CSS conflicts
+  const printWin = window.open('', '_blank', 'width=850,height=700');
+  if (!printWin) {
+    alert('Pop-up diblokir oleh browser! Silakan izinkan pop-up untuk mencetak nota.');
+    return;
+  }
+  printWin.document.open();
+  printWin.document.write(printHtml);
+  printWin.document.close();
+
+  // Wait for all images to load, then print
+  printWin.onload = function() {
     setTimeout(() => {
-      window.print();
-    }, 200);
-  });
+      printWin.focus();
+      printWin.print();
+    }, 400);
+  };
 }

@@ -27,7 +27,132 @@ function handleWaClick(e, noWa, nama, noNota, id) {
   }
 }
 
-async function renderPesananModule() {
+function getPesananTableRowsHtml(filtered, formatRp) {
+  if (filtered.length === 0) {
+    return `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data pesanan ditemukan.</td></tr>`;
+  }
+  return filtered.map(p => {
+    const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
+    const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
+    const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+    return `
+      <tr>
+        <td><b>${p.no_nota || '-'}</b></td>
+        <td>
+          <small>Pesan: ${p.tanggal || '-'}</small><br>
+          <small style="color:var(--info);">Antar: ${p.tanggal_antar || '-'}</small>
+        </td>
+        <td>
+          <div style="cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem;" 
+               title="Klik untuk chat WhatsApp pemesan"
+               onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+            <b style="color:var(--text-main); font-size:0.95rem;">${p.nama_pemesan || '-'}</b>
+            <span style="color:#25D366; font-size:0.95rem;">💬</span>
+          </div><br>
+          ${p.no_wa ? `
+            <small style="color:#25D366; font-weight:600; cursor:pointer;" 
+                   onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})"
+                   title="Klik untuk chat WhatsApp">
+              📱 ${p.no_wa}
+            </small><br>
+          ` : `
+            <small style="color:var(--text-muted); cursor:pointer; font-style:italic;" onclick="openPesananModal(${p.id})">
+              📱 <span style="text-decoration:underline;">+ Tambah WA</span>
+            </small><br>
+          `}
+          <small style="color:var(--text-muted);">
+            📍 ${p.lokasi_pengantaran || '-'}
+            ${(() => {
+              const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
+              return gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; text-decoration:none; font-weight:600; margin-left:0.25rem;">[📍 Maps]</a>` : '';
+            })()}
+          </small>
+        </td>
+        <td>
+          <span class="badge badge-proses">${p.jenis_papan || '-'}</span><br>
+          <small style="color:var(--text-muted); font-style:italic;">"${p.ucapan || '-'}"</small>
+        </td>
+        <td>
+          <b>Total: ${formatRp(p.harga)}</b><br>
+          <small style="color:var(--success);">Dibayar: ${formatRp(p.dibayar)}</small>
+        </td>
+        <td>
+          ${p.status_lunas ? '<span class="badge badge-lunas">LUNAS</span>' : `
+            <span class="badge badge-belum">SISA ${formatRp(p.harga - p.dibayar)}</span>
+          `}
+        </td>
+        <td><span class="badge badge-siap">${p.status_proses || 'Data Masuk'}</span></td>
+        <td style="text-align:right;">
+          <div style="display:inline-flex; gap:0.35rem;">
+            ${!p.status_lunas ? `<button class="btn btn-success btn-sm" title="Tandai Lunas" onclick="handleTandaiLunas(${p.id})">✔ Lunas</button>` : ''}
+            <button class="btn btn-secondary btn-sm" title="Cetak Nota QR Code Verifikasi" onclick="printNotaPesanan(${p.id})">🖨️ Nota QR</button>
+            <button class="btn btn-secondary btn-sm" title="Edit" onclick="openPesananModal(${p.id})">✏️</button>
+            <button class="btn btn-danger btn-sm" title="Hapus" onclick="handleHapusPesanan(${p.id})">🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function getPesananMobileCardsHtml(filtered, formatRp) {
+  if (filtered.length === 0) {
+    return `<div style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data pesanan ditemukan.</div>`;
+  }
+  return filtered.map(p => {
+    const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
+    const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
+    const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+    const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
+    return `
+      <div class="mobile-card-item">
+        <div class="mobile-card-header">
+          <span class="nota-no">📄 ${p.no_nota || '-'}</span>
+          ${p.status_lunas ? '<span class="badge badge-lunas">LUNAS</span>' : `<span class="badge badge-belum">SISA ${formatRp(p.harga - p.dibayar)}</span>`}
+        </div>
+        <div class="mobile-card-body">
+          <div class="customer-name" style="cursor:pointer; display:inline-flex; align-items:center; gap:0.35rem;" 
+               onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+            <span>${p.nama_pemesan || '-'}</span>
+            <span style="color:#25D366; font-size:1.05rem;">💬</span>
+          </div>
+          ${p.no_wa ? `
+            <div style="font-size:0.82rem; color:#25D366; font-weight:600; cursor:pointer; margin-top:0.15rem;" 
+                 onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+              📱 ${p.no_wa} (Chat WA)
+            </div>
+          ` : `
+            <div style="font-size:0.78rem; color:var(--text-muted); cursor:pointer; margin-top:0.15rem; font-style:italic;" 
+                 onclick="openPesananModal(${p.id})">
+              📱 <span style="text-decoration:underline;">+ Tambah WA Pemesan</span>
+            </div>
+          `}
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem; display:flex; justify-content:space-between; align-items:center;">
+            <span>📍 ${p.lokasi_pengantaran || '-'}</span>
+            ${gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; font-weight:600; text-decoration:none;">📍 Maps</a>` : ''}
+          </div>
+          <div style="margin-top:0.25rem; display:flex; gap:0.4rem; flex-wrap:wrap;">
+            <span class="badge badge-proses">${p.jenis_papan || '-'}</span>
+            <span class="badge badge-siap">${p.status_proses || 'Data Masuk'}</span>
+          </div>
+          <div class="ucapan-quote">"${p.ucapan || '-'}"</div>
+        </div>
+        <div class="mobile-card-meta">
+          <div>📅 Antar: <b>${p.tanggal_antar || '-'}</b></div>
+          <div>💰 Total: <b>${formatRp(p.harga)}</b></div>
+        </div>
+        <div class="mobile-card-actions">
+          ${!p.status_lunas ? `<button class="btn btn-success" onclick="handleTandaiLunas(${p.id})">✔ Lunas</button>` : ''}
+          <button class="btn btn-secondary" onclick="printNotaPesanan(${p.id})">📄 Nota QR</button>
+          <button class="btn btn-secondary" onclick="openPesananModal(${p.id})">✏️ Edit</button>
+          <button class="btn btn-danger" style="flex:0.4;" onclick="handleHapusPesanan(${p.id})">🗑️</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function renderPesananModule(forceFullRender = false) {
   const container = document.getElementById('view-pesanan');
   if (!container) return;
 
@@ -45,12 +170,26 @@ async function renderPesananModule() {
 
   const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
 
+  const tbody = document.getElementById('pesanan-tbody');
+  const mobileList = document.getElementById('pesanan-mobile-list');
+  const searchInput = document.getElementById('pesanan-search-input');
+
+  // Jika elemen DOM kerangka sudah ada, update isi tabel & mobile feed tanpa menghancurkan input box
+  if (!forceFullRender && tbody && mobileList && searchInput) {
+    tbody.innerHTML = getPesananTableRowsHtml(filtered, formatRp);
+    mobileList.innerHTML = getPesananMobileCardsHtml(filtered, formatRp);
+    if (document.activeElement !== searchInput) {
+      searchInput.value = pesananSearchKeyword;
+    }
+    return;
+  }
+
   let html = `
     <div class="card">
       <div class="card-header">
         <div class="card-title">📦 Daftar Pesanan Papan Bunga</div>
         <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
-          <input type="text" class="form-control" style="width:240px;" placeholder="🔍 Cari pemesan / WA / nota..." 
+          <input type="text" id="pesanan-search-input" class="form-control" style="width:240px;" placeholder="🔍 Cari pemesan / WA / nota..." 
                  value="${pesananSearchKeyword}" oninput="onSearchPesanan(this.value)">
           <button class="btn btn-primary" onclick="openPesananModal()"><span class="icon">➕</span> Tambah Order</button>
         </div>
@@ -71,124 +210,15 @@ async function renderPesananModule() {
               <th style="text-align:right;">Aksi</th>
             </tr>
           </thead>
-          <tbody>
-            ${filtered.length > 0 ? filtered.map(p => {
-    const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
-    const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
-    const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
-    return `
-              <tr>
-                <td><b>${p.no_nota || '-'}</b></td>
-                <td>
-                  <small>Pesan: ${p.tanggal || '-'}</small><br>
-                  <small style="color:var(--info);">Antar: ${p.tanggal_antar || '-'}</small>
-                </td>
-                <td>
-                  <div style="cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem;" 
-                       title="Klik untuk chat WhatsApp pemesan"
-                       onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
-                    <b style="color:var(--text-main); font-size:0.95rem;">${p.nama_pemesan || '-'}</b>
-                    <span style="color:#25D366; font-size:0.95rem;">💬</span>
-                  </div><br>
-                  ${p.no_wa ? `
-                    <small style="color:#25D366; font-weight:600; cursor:pointer;" 
-                           onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})"
-                           title="Klik untuk chat WhatsApp">
-                      📱 ${p.no_wa}
-                    </small><br>
-                  ` : `
-                    <small style="color:var(--text-muted); cursor:pointer; font-style:italic;" onclick="openPesananModal(${p.id})">
-                      📱 <span style="text-decoration:underline;">+ Tambah WA</span>
-                    </small><br>
-                  `}
-                  <small style="color:var(--text-muted);">
-                    📍 ${p.lokasi_pengantaran || '-'}
-                    ${(() => {
-                      const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
-                      return gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; text-decoration:none; font-weight:600; margin-left:0.25rem;">[📍 Maps]</a>` : '';
-                    })()}
-                  </small>
-                </td>
-                <td>
-                  <span class="badge badge-proses">${p.jenis_papan || '-'}</span><br>
-                  <small style="color:var(--text-muted); font-style:italic;">"${p.ucapan || '-'}"</small>
-                </td>
-                <td>
-                  <b>Total: ${formatRp(p.harga)}</b><br>
-                  <small style="color:var(--success);">Dibayar: ${formatRp(p.dibayar)}</small>
-                </td>
-                <td>
-                  ${p.status_lunas ? '<span class="badge badge-lunas">LUNAS</span>' : `
-                    <span class="badge badge-belum">SISA ${formatRp(p.harga - p.dibayar)}</span>
-                  `}
-                </td>
-                <td><span class="badge badge-siap">${p.status_proses || 'Data Masuk'}</span></td>
-                <td style="text-align:right;">
-                  <div style="display:inline-flex; gap:0.35rem;">
-                    ${!p.status_lunas ? `<button class="btn btn-success btn-sm" title="Tandai Lunas" onclick="handleTandaiLunas(${p.id})">✔ Lunas</button>` : ''}
-                    <button class="btn btn-secondary btn-sm" title="Cetak Nota QR Code Verifikasi" onclick="printNotaPesanan(${p.id})">🖨️ Nota QR</button>
-                    <button class="btn btn-secondary btn-sm" title="Edit" onclick="openPesananModal(${p.id})">✏️</button>
-                    <button class="btn btn-danger btn-sm" title="Hapus" onclick="handleHapusPesanan(${p.id})">🗑️</button>
-                  </div>
-                </td>
-              </tr>
-            `}).join('') : `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data pesanan ditemukan.</td></tr>`}
+          <tbody id="pesanan-tbody">
+            ${getPesananTableRowsHtml(filtered, formatRp)}
           </tbody>
         </table>
       </div>
 
       <!-- Tampilan Native Mobile Feed Cards (Khusus HP) -->
-      <div class="mobile-card-list">
-        ${filtered.length > 0 ? filtered.map(p => {
-      const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
-      const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
-      const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
-      const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
-      return `
-          <div class="mobile-card-item">
-            <div class="mobile-card-header">
-              <span class="nota-no">📄 ${p.no_nota || '-'}</span>
-              ${p.status_lunas ? '<span class="badge badge-lunas">LUNAS</span>' : `<span class="badge badge-belum">SISA ${formatRp(p.harga - p.dibayar)}</span>`}
-            </div>
-            <div class="mobile-card-body">
-              <div class="customer-name" style="cursor:pointer; display:inline-flex; align-items:center; gap:0.35rem;" 
-                   onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
-                <span>${p.nama_pemesan || '-'}</span>
-                <span style="color:#25D366; font-size:1.05rem;">💬</span>
-              </div>
-              ${p.no_wa ? `
-                <div style="font-size:0.82rem; color:#25D366; font-weight:600; cursor:pointer; margin-top:0.15rem;" 
-                     onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
-                  📱 ${p.no_wa} (Chat WA)
-                </div>
-              ` : `
-                <div style="font-size:0.78rem; color:var(--text-muted); cursor:pointer; margin-top:0.15rem; font-style:italic;" 
-                     onclick="openPesananModal(${p.id})">
-                  📱 <span style="text-decoration:underline;">+ Tambah WA Pemesan</span>
-                </div>
-              `}
-              <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem; display:flex; justify-content:space-between; align-items:center;">
-                <span>📍 ${p.lokasi_pengantaran || '-'}</span>
-                ${gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; font-weight:600; text-decoration:none;">📍 Maps</a>` : ''}
-              </div>
-              <div style="margin-top:0.25rem; display:flex; gap:0.4rem; flex-wrap:wrap;">
-                <span class="badge badge-proses">${p.jenis_papan || '-'}</span>
-                <span class="badge badge-siap">${p.status_proses || 'Data Masuk'}</span>
-              </div>
-              <div class="ucapan-quote">"${p.ucapan || '-'}"</div>
-            </div>
-            <div class="mobile-card-meta">
-              <div>📅 Antar: <b>${p.tanggal_antar || '-'}</b></div>
-              <div>💰 Total: <b>${formatRp(p.harga)}</b></div>
-            </div>
-            <div class="mobile-card-actions">
-              ${!p.status_lunas ? `<button class="btn btn-success" onclick="handleTandaiLunas(${p.id})">✔ Lunas</button>` : ''}
-              <button class="btn btn-secondary" onclick="printNotaPesanan(${p.id})">📄 Nota QR</button>
-              <button class="btn btn-secondary" onclick="openPesananModal(${p.id})">✏️ Edit</button>
-              <button class="btn btn-danger" style="flex:0.4;" onclick="handleHapusPesanan(${p.id})">🗑️</button>
-            </div>
-          </div>
-        `}).join('') : `<div style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data pesanan ditemukan.</div>`}
+      <div id="pesanan-mobile-list" class="mobile-card-list">
+        ${getPesananMobileCardsHtml(filtered, formatRp)}
       </div>
     </div>
   `;
@@ -198,7 +228,7 @@ async function renderPesananModule() {
 
 function onSearchPesanan(val) {
   pesananSearchKeyword = val;
-  renderPesananModule();
+  renderPesananModule(false);
 }
 
 async function openPesananModal(id = null) {
@@ -353,11 +383,10 @@ async function printNotaPesanan(id) {
 
   const qrText = targetUrl.includes('?') ? `${targetUrl}&${qrUrlParams.toString()}` : `${targetUrl}?${qrUrlParams.toString()}`;
 
-  // Build QR Code Image as base64 PNG (reliable for printing across all browsers)
+  // Build QR Code as base64 Data URL
   let qrDataUrl = '';
   if (typeof qrcode !== 'undefined') {
     try {
-      // Strategy 1: Generate QR with full URL
       const qrObj = qrcode(0, 'L');
       qrObj.addData(qrText);
       qrObj.make();
@@ -365,7 +394,6 @@ async function printNotaPesanan(id) {
     } catch (qrErr1) {
       console.warn('[QR Code] Full URL too long, trying shorter data...', qrErr1);
       try {
-        // Strategy 2: Use shorter data if URL was too long
         const shortData = `${p.no_nota}|${signature}`;
         const qrObj2 = qrcode(0, 'M');
         qrObj2.addData(shortData);
@@ -375,12 +403,10 @@ async function printNotaPesanan(id) {
         console.error('[QR Code] Gagal generate QR Code:', qrErr2);
       }
     }
-  } else {
-    console.warn('[QR Code] Library qrcode-generator belum ter-load.');
   }
 
-  const qrHtml = qrDataUrl
-    ? `<img src="${qrDataUrl}" alt="QR Code Verifikasi" style="width: 110px; height: 110px; border: 1px solid #ddd; padding: 4px; background: #fff; image-rendering: pixelated;">`
+  const qrImgTag = qrDataUrl
+    ? `<img src="${qrDataUrl}" alt="QR Code Verifikasi" style="width: 110px; height: 110px; border: 1px solid #ddd; padding: 4px; background: #fff;">`
     : `<div style="width:110px; height:110px; border:2px dashed #ccc; display:flex; align-items:center; justify-content:center; font-size:10px; color:#999; text-align:center; background:#fff;">QR Code<br>Tidak Tersedia</div>`;
 
   const isLunas = p.status_lunas === 1 || p.dibayar >= p.harga;
@@ -407,125 +433,103 @@ async function printNotaPesanan(id) {
 
   const logoHtml = config.logo_path ? `<img src="${config.logo_path}" alt="Logo Toko" style="max-height: 80px; max-width: 100px; margin-right: 15px;">` : '';
 
-  const printArea = document.getElementById('print-area');
-  printArea.innerHTML = `
-    <style>
-      ${watermarkCss}
-      .invoice-box {
-        position: relative;
-        max-width: 800px;
-        margin: auto;
-        padding: 30px;
-        border: 1px solid #eee;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
-        font-size: 15px;
-        line-height: 24px;
-        color: #555;
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      }
-      .top-table { width: 100%; text-align: left; margin-bottom: 20px; }
-      .title { font-size: 28px; font-weight: bold; color: #333; text-transform: uppercase; }
-      .info-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
-      .info-table th, .info-table td { padding: 10px; border: 1px solid #ddd; }
-      .info-table th { background: #eee; text-align: left; }
-      .total-row { font-weight: bold; background: #f9f9f9; }
-      .status-badge { display: inline-block; padding: 5px 10px; border-radius: 5px; color: white; background-color: ${isLunas ? '#28a745' : '#dc3545'}; font-weight: bold; }
-      #print-area img { display: inline-block !important; visibility: visible !important; max-width: 100%; }
-    </style>
-
-    <div class="invoice-box">
-      ${isLunas ? '<div class="watermark">LUNAS</div>' : ''}
-      
-      <table class="top-table">
-        <tr>
-          ${logoHtml ? `<td style="width: 15%; vertical-align: top;">${logoHtml}</td>` : ''}
-          <td class="title" style="width: ${logoHtml ? '50%' : '65%'}; vertical-align: top;">
-            <span style="font-size: 32px; color: #000; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">${config.nama_toko || 'AKIO FLORIST'}</span><br>
-            <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; letter-spacing: 2px;">${config.tagline || 'SPECIALIST PAPAN BUNGA'}</span><br>
-            <span style="font-size: 11px; font-weight: normal; color: #555;">${config.alamat || ''} ${config.telepon ? '| WA: ' + config.telepon : ''}</span><br><br>
-            <span style="font-size: 18px; text-decoration: underline;">INVOICE PESANAN</span>
-          </td>
-          <td style="text-align: right; vertical-align: top;">
-            <b>No Nota:</b> ${p.no_nota}<br>
-            <b>Tanggal Pesan:</b> ${p.tanggal}<br>
-            <b>Status:</b> <span class="status-badge">${isLunas ? 'LUNAS' : 'BELUM LUNAS'}</span>
-          </td>
-        </tr>
-      </table>
-      <hr style="border: 0; border-top: 1px solid #eee;">
-      
-      <div style="margin-top: 15px;">
-        <b>Ditujukan kepada:</b><br>
-        Pemesan : <b>${p.nama_pemesan}</b> ${p.no_wa ? `(WA: ${p.no_wa})` : ''}<br>
-        Lokasi Pengantaran : ${p.lokasi_pengantaran || '-'}<br>
-        Tanggal Pengantaran : <b>${p.tanggal_antar || p.tanggal}</b>
-      </div>
-
-      <table class="info-table">
-        <thead>
-          <tr>
-            <th>Deskripsi Pesanan</th>
-            <th style="width: 200px; text-align: right;">Total / Harga</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>
-              <b>Jenis/Ukuran Papan:</b> ${p.jenis_papan}<br><br>
-              <b>Catatan Ucapan Tertulis:</b><br>
-              <i>"${p.ucapan}"</i>
-            </td>
-            <td style="text-align: right; vertical-align: bottom;">${formatRp(p.harga)}</td>
-          </tr>
-          <tr class="total-row">
-            <td style="text-align: right;">TOTAL BAYAR</td>
-            <td style="text-align: right; font-size: 18px;">${formatRp(p.harga)}</td>
-          </tr>
-          <tr class="total-row" style="color: #28a745;">
-            <td style="text-align: right;">TELAH DIBAYAR</td>
-            <td style="text-align: right; font-size: 15px;">${formatRp(p.dibayar)}</td>
-          </tr>
-          <tr class="total-row" style="color: #dc3545;">
-            <td style="text-align: right;">SISA TAGIHAN</td>
-            <td style="text-align: right; font-size: 15px;">${formatRp(p.harga - p.dibayar)}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <table style="width: 100%; margin-top: 40px;">
-        <tr>
-          <td style="width: 70%; text-align: left; color: #777; vertical-align: top;">
-            <p>Terima kasih atas pesanan papan bunga Anda!</p>
-            <p style="font-size: 11px; margin-top: 15px;">
-              * Invoice ini sah dan dicetak secara otomatis (komputerisasi).<br>
-              Silakan <i>scan</i> QR Code di samping untuk verifikasi keaslian nota.
-            </p>
-          </td>
-          <td style="width: 30%; text-align: right; vertical-align: top;">
-            ${qrHtml}<br>
-            <span style="font-size: 10px; color: #777; font-family: monospace;">SIGN: ${signature}</span>
-          </td>
-        </tr>
-      </table>
+  // Build full HTML document for print popup
+  const printHtml = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Invoice ${p.no_nota}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 24px; color: #555; background: #fff; }
+  ${watermarkCss}
+  .invoice-box {
+    position: relative; max-width: 800px; margin: auto; padding: 30px;
+    border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.15);
+  }
+  .top-table { width: 100%; text-align: left; margin-bottom: 20px; }
+  .title { font-size: 28px; font-weight: bold; color: #333; text-transform: uppercase; }
+  .info-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+  .info-table th, .info-table td { padding: 10px; border: 1px solid #ddd; }
+  .info-table th { background: #eee; text-align: left; }
+  .total-row { font-weight: bold; background: #f9f9f9; }
+  .status-badge { display: inline-block; padding: 5px 10px; border-radius: 5px; color: white; background-color: ${isLunas ? '#28a745' : '#dc3545'}; font-weight: bold; }
+  img { display: inline-block; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .invoice-box { box-shadow: none; border: none; }
+  }
+</style>
+</head><body>
+  <div class="invoice-box">
+    ${isLunas ? '<div class="watermark">LUNAS</div>' : ''}
+    <table class="top-table">
+      <tr>
+        ${logoHtml ? `<td style="width: 15%; vertical-align: top;">${logoHtml}</td>` : ''}
+        <td class="title" style="width: ${logoHtml ? '50%' : '65%'}; vertical-align: top;">
+          <span style="font-size: 32px; color: #000; font-weight: 900; text-transform: uppercase; letter-spacing: 1px;">${config.nama_toko || 'AKIO FLORIST'}</span><br>
+          <span style="font-size: 13px; font-weight: normal; color: #7f8c8d; letter-spacing: 2px;">${config.tagline || 'SPECIALIST PAPAN BUNGA'}</span><br>
+          <span style="font-size: 11px; font-weight: normal; color: #555;">${config.alamat || ''} ${config.telepon ? '| WA: ' + config.telepon : ''}</span><br><br>
+          <span style="font-size: 18px; text-decoration: underline;">INVOICE PESANAN</span>
+        </td>
+        <td style="text-align: right; vertical-align: top;">
+          <b>No Nota:</b> ${p.no_nota}<br>
+          <b>Tanggal Pesan:</b> ${p.tanggal}<br>
+          <b>Status:</b> <span class="status-badge">${isLunas ? 'LUNAS' : 'BELUM LUNAS'}</span>
+        </td>
+      </tr>
+    </table>
+    <hr style="border: 0; border-top: 1px solid #eee;">
+    <div style="margin-top: 15px;">
+      <b>Ditujukan kepada:</b><br>
+      Pemesan : <b>${p.nama_pemesan}</b> ${p.no_wa ? `(WA: ${p.no_wa})` : ''}<br>
+      Lokasi Pengantaran : ${p.lokasi_pengantaran || '-'}<br>
+      Tanggal Pengantaran : <b>${p.tanggal_antar || p.tanggal}</b>
     </div>
-  `;
+    <table class="info-table">
+      <thead><tr><th>Deskripsi Pesanan</th><th style="width: 200px; text-align: right;">Total / Harga</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Jenis/Ukuran Papan:</b> ${p.jenis_papan}<br><br><b>Catatan Ucapan Tertulis:</b><br><i>"${p.ucapan}"</i></td>
+          <td style="text-align: right; vertical-align: bottom;">${formatRp(p.harga)}</td>
+        </tr>
+        <tr class="total-row"><td style="text-align: right;">TOTAL BAYAR</td><td style="text-align: right; font-size: 18px;">${formatRp(p.harga)}</td></tr>
+        <tr class="total-row" style="color: #28a745;"><td style="text-align: right;">TELAH DIBAYAR</td><td style="text-align: right; font-size: 15px;">${formatRp(p.dibayar)}</td></tr>
+        <tr class="total-row" style="color: #dc3545;"><td style="text-align: right;">SISA TAGIHAN</td><td style="text-align: right; font-size: 15px;">${formatRp(p.harga - p.dibayar)}</td></tr>
+      </tbody>
+    </table>
+    <table style="width: 100%; margin-top: 40px;">
+      <tr>
+        <td style="width: 70%; text-align: left; color: #777; vertical-align: top;">
+          <p>Terima kasih atas pesanan papan bunga Anda!</p>
+          <p style="font-size: 11px; margin-top: 15px;">
+            * Invoice ini sah dan dicetak secara otomatis (komputerisasi).<br>
+            Silakan <i>scan</i> QR Code di samping untuk verifikasi keaslian nota.
+          </p>
+        </td>
+        <td style="width: 30%; text-align: right; vertical-align: top;">
+          ${qrImgTag}<br>
+          <span style="font-size: 10px; color: #777; font-family: monospace;">SIGN: ${signature}</span>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body></html>`;
 
-  // Tunggu semua gambar (logo & QR) selesai dimuat sebelum print
-  const allImages = printArea.querySelectorAll('img');
-  const imageLoadPromises = Array.from(allImages).map(img => {
-    if (img.complete) return Promise.resolve();
-    return new Promise(resolve => {
-      img.onload = resolve;
-      img.onerror = resolve; // tetap lanjut print walau gambar error
-    });
-  });
+  // Open popup window for print — bypasses all @media print CSS conflicts
+  const printWin = window.open('', '_blank', 'width=850,height=700');
+  if (!printWin) {
+    alert('Pop-up diblokir oleh browser! Silakan izinkan pop-up untuk mencetak nota.');
+    return;
+  }
+  printWin.document.open();
+  printWin.document.write(printHtml);
+  printWin.document.close();
 
-  Promise.all(imageLoadPromises).then(() => {
-    // Tambah delay kecil agar layout stabil
+  // Wait for all images to load, then print
+  printWin.onload = function() {
     setTimeout(() => {
-      window.print();
-    }, 200);
-  });
+      printWin.focus();
+      printWin.print();
+    }, 400);
+  };
 }
 
 // === FUNGSI PERIKSA QR CODE VERIFIKASI STANDALONE DARI URL ===
