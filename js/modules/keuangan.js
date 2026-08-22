@@ -236,7 +236,7 @@ async function saveKeuanganForm(e) {
   e.preventDefault();
   const form = e.target;
 
-  await db.keuangan.add({
+  await dbTambahKeuangan({
     tanggal: form.tanggal.value,
     jenis_transaksi: form.jenis_transaksi.value,
     keterangan: form.keterangan.value,
@@ -251,7 +251,7 @@ async function saveKeuanganForm(e) {
 
 async function handleHapusKeuangan(id) {
   if (confirm('Apakah Anda yakin ingin menghapus catatan kas ini?')) {
-    await db.keuangan.delete(id);
+    await dbHapusKeuangan(id);
     renderKeuanganModule();
     if (typeof renderDashboardModule === 'function') renderDashboardModule();
   }

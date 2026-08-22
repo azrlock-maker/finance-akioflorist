@@ -242,6 +242,28 @@ async function dbUpdatePesanan(id, data) {
   if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync');
 }
 
+// Tambah Catatan Transaksi Kas Manual (Pengeluaran / Pemasukan)
+async function dbTambahKeuangan(data) {
+  const id = await db.keuangan.add({
+    tanggal: data.tanggal || getTodayLocal(),
+    jenis_transaksi: data.jenis_transaksi || 'Pengeluaran',
+    keterangan: (data.keterangan || '').trim(),
+    nominal: parseFloat(data.nominal) || 0,
+    no_nota: data.no_nota || ''
+  });
+
+  if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
+  if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync');
+  return id;
+}
+
+// Hapus Catatan Transaksi Kas Manual
+async function dbHapusKeuangan(id) {
+  await db.keuangan.delete(id);
+  if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
+  if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync');
+}
+
 // Hapus Pesanan + Transaksi Kas Terkait
 async function dbHapusPesanan(id) {
   const pesanan = await db.pesanan.get(id);

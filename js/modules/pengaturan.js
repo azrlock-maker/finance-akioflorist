@@ -107,8 +107,14 @@ async function renderPengaturanModule() {
               <button class="btn btn-primary" onclick="handleSaveStorePin()">🔗 Hubungkan</button>
             </div>
             <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.4rem;">
-              💡 Masukkan PIN yang sama di HP & PC Anda agar data langsung sinkron secara otomatis.
+              💡 Masukkan PIN yang sama di HP & PC (minimal 6 huruf/angka, misal: <b>AKIOFLORIST</b>).
             </div>
+          </div>
+
+          <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:0.35rem;" onclick="triggerManualRealtimeSync()">
+              <span>🧪</span> Tes Koneksi & Sinkron Sekarang
+            </button>
           </div>
 
           <!-- Accordion Toggle untuk Setting Firebase Custom (Opsional) -->
@@ -117,7 +123,8 @@ async function renderPengaturanModule() {
             <div class="form-group" style="margin-top:0.75rem; padding:0.75rem; background:rgba(0,0,0,0.2); border-radius:8px;">
               <input type="url" id="input-firebase-url" class="form-control" style="font-size:0.85rem;" 
                      value="${localStorage.getItem('custom_firebase_url') || ''}" 
-                     placeholder="Contoh: https://proyek-anda-default-rtdb.asia-southeast1.firebasedatabase.app">
+                     placeholder="https://akio-florist-finance-default-rtdb.asia-southeast1.firebasedatabase.app">
+              <div style="font-size:0.7rem; color:var(--text-muted); margin-top:0.3rem;">Default: akio-florist-finance-default-rtdb.asia-southeast1.firebasedatabase.app</div>
               <button class="btn btn-secondary btn-sm" style="margin-top:0.5rem;" onclick="handleSaveCustomFirebaseUrl()">💾 Simpan URL Firebase Custom</button>
             </div>
           </details>

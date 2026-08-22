@@ -6,17 +6,18 @@ const DEFAULT_STORE_PIN = 'AKIOFLORIST';
 
 // Default Public Firebase Realtime DB Config (bebas kuota hingga 100 koneksi bersamaan)
 const DEFAULT_FIREBASE_CONFIG = {
-  databaseURL: "https://finance-papanbunga-default-rtdb.asia-southeast1.firebasedatabase.app"
+  databaseURL: "https://akio-florist-finance-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 let firebaseDb = null;
 let currentStorePin = localStorage.getItem('store_sync_pin') || DEFAULT_STORE_PIN;
-let isRemoteUpdate = false; // Flag untuk cegah infinite loop sync
+let isPullingFromCloud = false; // Flag khusus cegah infinite loop saat menerima update dari cloud
 
 const realtimeState = {
   isOnline: navigator.onLine,
   isConnected: false,
   lastSyncTime: localStorage.getItem('realtime_last_sync') || null,
+  lastError: null,
   syncing: false
 };
 
@@ -25,6 +26,7 @@ const realtimeState = {
 function initFirebaseRealtimeSync() {
   if (typeof firebase === 'undefined') {
     console.warn('[Realtime Sync] SDK Firebase belum dimuat.');
+    realtimeState.lastError = 'SDK Firebase belum dimuat di browser.';
     updateRealtimeUI();
     return;
   }
@@ -35,31 +37,32 @@ function initFirebaseRealtimeSync() {
 
     if (!firebase.apps.length) {
       firebase.initializeApp(config);
-    } else if (customUrl && firebase.app().options.databaseURL !== customUrl) {
-      // Re-initialize if URL changed
-      firebase.app().delete();
-      firebase.initializeApp(config);
+    } else {
+      const currentUrl = firebase.app().options.databaseURL;
+      if (currentUrl !== config.databaseURL) {
+        firebase.app().delete();
+        firebase.initializeApp(config);
+      }
     }
     firebaseDb = firebase.database();
 
-    // Dapatkan PIN Toko yang tersimpan
     currentStorePin = localStorage.getItem('store_sync_pin') || DEFAULT_STORE_PIN;
     
-    // Monitor status koneksi Firebase secara instan
     const connectedRef = firebaseDb.ref('.info/connected');
     connectedRef.on('value', (snap) => {
       realtimeState.isConnected = snap.val() === true;
-      updateRealtimeUI();
       if (realtimeState.isConnected) {
-        console.log(`[Realtime Sync] Connected to Cloud DB (PIN: ${currentStorePin})`);
+        realtimeState.lastError = null;
+        console.log(`[Realtime Sync] Connected to Cloud DB (${config.databaseURL}) (PIN: ${currentStorePin})`);
       }
+      updateRealtimeUI();
     });
 
-    // Mulai dengarkan perubahan data realtime dari Cloud
     attachRealtimeListeners();
 
   } catch (err) {
     console.error('[Realtime Sync Init Error]', err);
+    realtimeState.lastError = err.message || 'Gagal inisialisasi Firebase';
     updateRealtimeUI();
   }
 }
@@ -74,18 +77,21 @@ function attachRealtimeListeners() {
   // Dengarkan seluruh snapshot data toko secara live
   storeRef.on('value', async (snapshot) => {
     const cloudData = snapshot.val();
+    realtimeState.lastError = null;
     if (!cloudData) return;
 
-    // Jika perubahan dipicu oleh perangkat ini sendiri, abaikan
-    if (isRemoteUpdate) return;
+    // Jika sedang dalam proses pengiriman lokal, jangan timpang tindih
+    if (isPullingFromCloud) return;
 
     try {
-      isRemoteUpdate = true;
+      isPullingFromCloud = true;
       let hasChanges = false;
 
-      // Update Pesanan Lokal dari Cloud
+      // 1. Update & Sync Pesanan Lokal dari Cloud
       if (cloudData.pesanan) {
         const cloudPesananList = Object.values(cloudData.pesanan);
+        const cloudPesananIdSet = new Set(cloudPesananList.map(p => p.id));
+
         for (const p of cloudPesananList) {
           if (!p || !p.id) continue;
           const localP = await db.pesanan.get(p.id);
@@ -94,16 +100,36 @@ function attachRealtimeListeners() {
             hasChanges = true;
           }
         }
+
+        // Hapus pesanan di lokal jika sudah dihapus di cloud
+        const allLocalPesanan = await db.pesanan.toArray();
+        for (const lp of allLocalPesanan) {
+          if (lp.id && !cloudPesananIdSet.has(lp.id)) {
+            await db.pesanan.delete(lp.id);
+            hasChanges = true;
+          }
+        }
       }
 
-      // Update Keuangan Lokal dari Cloud
+      // 2. Update & Sync Keuangan Kas Lokal dari Cloud
       if (cloudData.keuangan) {
         const cloudKeuanganList = Object.values(cloudData.keuangan);
+        const cloudKeuanganIdSet = new Set(cloudKeuanganList.map(k => k.id));
+
         for (const k of cloudKeuanganList) {
           if (!k || !k.id) continue;
           const localK = await db.keuangan.get(k.id);
           if (!localK || JSON.stringify(localK) !== JSON.stringify(k)) {
             await db.keuangan.put(k);
+            hasChanges = true;
+          }
+        }
+
+        // Hapus keuangan di lokal jika sudah dihapus di cloud
+        const allLocalKeuangan = await db.keuangan.toArray();
+        for (const lk of allLocalKeuangan) {
+          if (lk.id && !cloudKeuanganIdSet.has(lk.id)) {
+            await db.keuangan.delete(lk.id);
             hasChanges = true;
           }
         }
@@ -123,47 +149,46 @@ function attachRealtimeListeners() {
     } catch (e) {
       console.error('[Realtime Sync Pull Error]', e);
     } finally {
-      setTimeout(() => { isRemoteUpdate = false; }, 300);
+      setTimeout(() => { isPullingFromCloud = false; }, 300);
     }
+  }, (err) => {
+    console.error('[Realtime Sync Listener Error]', err);
+    realtimeState.lastError = err.message || 'Akses ditolak (Periksa Rules)';
+    updateRealtimeUI();
   });
 }
 
 // ─── Broadcast Perubahan Data Lokal ke Cloud ───────────────────────────────
 
 async function pushRealtimeChange(type, payload) {
-  if (!firebaseDb || !realtimeState.isConnected || isRemoteUpdate) return;
+  if (!firebaseDb || !realtimeState.isConnected || isPullingFromCloud) return;
 
   try {
-    isRemoteUpdate = true;
     const storeRef = firebaseDb.ref(`stores/${currentStorePin}`);
-    if (type === 'pesanan' && payload && payload.id) {
-      await storeRef.child(`pesanan/${payload.id}`).set(payload);
-    } else if (type === 'keuangan' && payload && payload.id) {
-      await storeRef.child(`keuangan/${payload.id}`).set(payload);
-    } else if (type === 'full_sync') {
-      // Upload full database snapshot ke cloud
-      const pesanan = await db.pesanan.toArray();
-      const keuangan = await db.keuangan.toArray();
-      const pesananMap = {};
-      const keuanganMap = {};
-      pesanan.forEach(p => { if (p.id) pesananMap[p.id] = p; });
-      keuangan.forEach(k => { if (k.id) keuanganMap[k.id] = k; });
+    
+    // Upload full database snapshot ke cloud untuk konsistensi sempurna
+    const pesanan = await db.pesanan.toArray();
+    const keuangan = await db.keuangan.toArray();
+    const pesananMap = {};
+    const keuanganMap = {};
+    pesanan.forEach(p => { if (p.id) pesananMap[p.id] = p; });
+    keuangan.forEach(k => { if (k.id) keuanganMap[k.id] = k; });
 
-      await storeRef.set({
-        pesanan: pesananMap,
-        keuangan: keuanganMap,
-        last_updated: Date.now()
-      });
-    }
+    await storeRef.set({
+      pesanan: pesananMap,
+      keuangan: keuanganMap,
+      last_updated: Date.now()
+    });
 
     const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     realtimeState.lastSyncTime = now;
+    realtimeState.lastError = null;
     localStorage.setItem('realtime_last_sync', now);
     updateRealtimeUI();
   } catch (err) {
     console.error('[Realtime Push Error]', err);
-  } finally {
-    setTimeout(() => { isRemoteUpdate = false; }, 1000);
+    realtimeState.lastError = err.message || 'Gagal mengirim data ke cloud';
+    updateRealtimeUI();
   }
 }
 
@@ -172,6 +197,12 @@ async function pushRealtimeChange(type, payload) {
 async function setStoreSyncPin(newPin) {
   if (!newPin || !newPin.trim()) return;
   const cleanPin = newPin.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  if (cleanPin.length < 6) {
+    alert(`⚠️ PIN Toko minimal harus 6 karakter (karena aturan keamanan Firebase).\nPIN yang Anda masukkan: "${cleanPin}" (${cleanPin.length} karakter).`);
+    return;
+  }
+
   currentStorePin = cleanPin;
   localStorage.setItem('store_sync_pin', cleanPin);
 
@@ -185,6 +216,56 @@ async function setStoreSyncPin(newPin) {
 
   updateRealtimeUI();
   alert(`✅ PIN Sync Toko berhasil diubah menjadi: ${cleanPin}\nPastikan HP & PC Anda menggunakan PIN yang sama!`);
+}
+
+// ─── Tes Koneksi & Paksa Sinkronisasi Sekarang ──────────────────────────────
+
+async function triggerManualRealtimeSync() {
+  if (!navigator.onLine) {
+    alert('⚠️ Perangkat sedang OFFLINE. Pastikan koneksi internet aktif.');
+    return;
+  }
+
+  try {
+    initFirebaseRealtimeSync();
+    if (!firebaseDb) {
+      alert('⚠️ Gagal inisialisasi Firebase.');
+      return;
+    }
+
+    const storeRef = firebaseDb.ref(`stores/${currentStorePin}`);
+    
+    // Tes baca data
+    const snapshot = await storeRef.once('value');
+    const cloudData = snapshot.val();
+
+    let cloudPesananCount = 0;
+    let cloudKasCount = 0;
+    if (cloudData) {
+      if (cloudData.pesanan) cloudPesananCount = Object.keys(cloudData.pesanan).length;
+      if (cloudData.keuangan) cloudKasCount = Object.keys(cloudData.keuangan).length;
+    }
+
+    // Push data lokal ke cloud juga untuk sinkronisasi 2 arah
+    await pushRealtimeChange('manual_test');
+
+    const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    realtimeState.lastSyncTime = now;
+    realtimeState.lastError = null;
+    localStorage.setItem('realtime_last_sync', now);
+    updateRealtimeUI();
+
+    alert(`✅ KONEKSI REALTIME CLOUD BERHASIL!\n\n` +
+          `• Database: Aktif & Terhubung\n` +
+          `• PIN Toko: ${currentStorePin}\n` +
+          `• Data di Cloud: ${cloudPesananCount} Pesanan, ${cloudKasCount} Transaksi Kas\n` +
+          `• Status: Siap sinkron otomatis antara PC & HP.`);
+  } catch (err) {
+    console.error('[Manual Sync Error]', err);
+    realtimeState.lastError = err.message;
+    updateRealtimeUI();
+    alert(`⚠️ GAGAL TERHUBUNG KE CLOUD:\n${err.message}\n\nPeriksa apakah URL Firebase dan PIN Toko (min 6 karakter) sudah benar.`);
+  }
 }
 
 // ─── Update UI Indikator Realtime ────────────────────────────────────────────
@@ -201,13 +282,21 @@ function updateRealtimeUI() {
   } else if (realtimeState.isConnected) {
     badge.className = 'sync-status-badge online';
     badge.innerHTML = `📡 REALTIME (${currentStorePin})`;
+  } else if (realtimeState.lastError) {
+    badge.className = 'sync-status-badge offline';
+    badge.innerHTML = '⚠️ ERROR CLOUD';
+    badge.title = realtimeState.lastError;
   } else {
     badge.className = 'sync-status-badge offline';
     badge.innerHTML = '🔄 HUBUNGKAN CLOUD...';
   }
 
   if (lastSyncText) {
-    lastSyncText.innerText = realtimeState.lastSyncTime ? `Live: ${realtimeState.lastSyncTime}` : `PIN: ${currentStorePin}`;
+    if (realtimeState.lastError) {
+      lastSyncText.innerText = `Err: ${realtimeState.lastError.substring(0, 20)}`;
+    } else {
+      lastSyncText.innerText = realtimeState.lastSyncTime ? `Live: ${realtimeState.lastSyncTime}` : `PIN: ${currentStorePin}`;
+    }
   }
 }
 
