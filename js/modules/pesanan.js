@@ -32,12 +32,18 @@ function getPesananTableRowsHtml(filtered, formatRp) {
     return `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data pesanan ditemukan.</td></tr>`;
   }
   return filtered.map(p => {
-    const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
-    const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
-    const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+    const safeNama = typeof escapeAttr === 'function' ? escapeAttr(p.nama_pemesan) : (p.nama_pemesan || '').replace(/'/g, "\\'");
+    const safeWa = typeof escapeAttr === 'function' ? escapeAttr(p.no_wa) : (p.no_wa || '').replace(/'/g, "\\'");
+    const safeNota = typeof escapeAttr === 'function' ? escapeAttr(p.no_nota) : (p.no_nota || '').replace(/'/g, "\\'");
+    const displayNama = typeof escapeHtml === 'function' ? escapeHtml(p.nama_pemesan || '-') : (p.nama_pemesan || '-');
+    const displayJenis = typeof escapeHtml === 'function' ? escapeHtml(p.jenis_papan || '-') : (p.jenis_papan || '-');
+    const displayUcapan = typeof escapeHtml === 'function' ? escapeHtml(p.ucapan || '-') : (p.ucapan || '-');
+    const displayLokasi = typeof escapeHtml === 'function' ? escapeHtml(p.lokasi_pengantaran || '-') : (p.lokasi_pengantaran || '-');
+    const displayNota = typeof escapeHtml === 'function' ? escapeHtml(p.no_nota || '-') : (p.no_nota || '-');
+
     return `
       <tr>
-        <td><b>${p.no_nota || '-'}</b></td>
+        <td><b>${displayNota}</b></td>
         <td>
           <small>Pesan: ${p.tanggal || '-'}</small><br>
           <small style="color:var(--info);">Antar: ${p.tanggal_antar || '-'}</small>
@@ -46,14 +52,14 @@ function getPesananTableRowsHtml(filtered, formatRp) {
           <div style="cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem;" 
                title="Klik untuk chat WhatsApp pemesan"
                onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
-            <b style="color:var(--text-main); font-size:0.95rem;">${p.nama_pemesan || '-'}</b>
+            <b style="color:var(--text-main); font-size:0.95rem;">${displayNama}</b>
             <span style="color:#25D366; font-size:0.95rem;">💬</span>
           </div><br>
           ${p.no_wa ? `
             <small style="color:#25D366; font-weight:600; cursor:pointer;" 
                    onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})"
                    title="Klik untuk chat WhatsApp">
-              📱 ${p.no_wa}
+              📱 ${typeof escapeHtml === 'function' ? escapeHtml(p.no_wa) : p.no_wa}
             </small><br>
           ` : `
             <small style="color:var(--text-muted); cursor:pointer; font-style:italic;" onclick="openPesananModal(${p.id})">
@@ -61,7 +67,7 @@ function getPesananTableRowsHtml(filtered, formatRp) {
             </small><br>
           `}
           <small style="color:var(--text-muted);">
-            📍 ${p.lokasi_pengantaran || '-'}
+            📍 ${displayLokasi}
             ${(() => {
               const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
               return gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; text-decoration:none; font-weight:600; margin-left:0.25rem;">[📍 Maps]</a>` : '';
@@ -69,8 +75,8 @@ function getPesananTableRowsHtml(filtered, formatRp) {
           </small>
         </td>
         <td>
-          <span class="badge badge-proses">${p.jenis_papan || '-'}</span><br>
-          <small style="color:var(--text-muted); font-style:italic;">"${p.ucapan || '-'}"</small>
+          <span class="badge badge-proses">${displayJenis}</span><br>
+          <small style="color:var(--text-muted); font-style:italic;">"${displayUcapan}"</small>
         </td>
         <td>
           <b>Total: ${formatRp(p.harga)}</b><br>
@@ -100,26 +106,32 @@ function getPesananMobileCardsHtml(filtered, formatRp) {
     return `<div style="text-align:center; padding:2rem; color:var(--text-muted);">Tidak ada data pesanan ditemukan.</div>`;
   }
   return filtered.map(p => {
-    const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
-    const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
-    const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+    const safeNama = typeof escapeAttr === 'function' ? escapeAttr(p.nama_pemesan) : (p.nama_pemesan || '').replace(/'/g, "\\'");
+    const safeWa = typeof escapeAttr === 'function' ? escapeAttr(p.no_wa) : (p.no_wa || '').replace(/'/g, "\\'");
+    const safeNota = typeof escapeAttr === 'function' ? escapeAttr(p.no_nota) : (p.no_nota || '').replace(/'/g, "\\'");
+    const displayNama = typeof escapeHtml === 'function' ? escapeHtml(p.nama_pemesan || '-') : (p.nama_pemesan || '-');
+    const displayJenis = typeof escapeHtml === 'function' ? escapeHtml(p.jenis_papan || '-') : (p.jenis_papan || '-');
+    const displayUcapan = typeof escapeHtml === 'function' ? escapeHtml(p.ucapan || '-') : (p.ucapan || '-');
+    const displayLokasi = typeof escapeHtml === 'function' ? escapeHtml(p.lokasi_pengantaran || '-') : (p.lokasi_pengantaran || '-');
+    const displayNota = typeof escapeHtml === 'function' ? escapeHtml(p.no_nota || '-') : (p.no_nota || '-');
     const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
+
     return `
       <div class="mobile-card-item">
         <div class="mobile-card-header">
-          <span class="nota-no">📄 ${p.no_nota || '-'}</span>
+          <span class="nota-no">📄 ${displayNota}</span>
           ${p.status_lunas ? '<span class="badge badge-lunas">LUNAS</span>' : `<span class="badge badge-belum">SISA ${formatRp(p.harga - p.dibayar)}</span>`}
         </div>
         <div class="mobile-card-body">
           <div class="customer-name" style="cursor:pointer; display:inline-flex; align-items:center; gap:0.35rem;" 
                onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
-            <span>${p.nama_pemesan || '-'}</span>
+            <span>${displayNama}</span>
             <span style="color:#25D366; font-size:1.05rem;">💬</span>
           </div>
           ${p.no_wa ? `
             <div style="font-size:0.82rem; color:#25D366; font-weight:600; cursor:pointer; margin-top:0.15rem;" 
                  onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
-              📱 ${p.no_wa} (Chat WA)
+              📱 ${typeof escapeHtml === 'function' ? escapeHtml(p.no_wa) : p.no_wa} (Chat WA)
             </div>
           ` : `
             <div style="font-size:0.78rem; color:var(--text-muted); cursor:pointer; margin-top:0.15rem; font-style:italic;" 
@@ -128,14 +140,14 @@ function getPesananMobileCardsHtml(filtered, formatRp) {
             </div>
           `}
           <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem; display:flex; justify-content:space-between; align-items:center;">
-            <span>📍 ${p.lokasi_pengantaran || '-'}</span>
+            <span>📍 ${displayLokasi}</span>
             ${gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; font-weight:600; text-decoration:none;">📍 Maps</a>` : ''}
           </div>
           <div style="margin-top:0.25rem; display:flex; gap:0.4rem; flex-wrap:wrap;">
-            <span class="badge badge-proses">${p.jenis_papan || '-'}</span>
+            <span class="badge badge-proses">${displayJenis}</span>
             <span class="badge badge-siap">${p.status_proses || 'Data Masuk'}</span>
           </div>
-          <div class="ucapan-quote">"${p.ucapan || '-'}"</div>
+          <div class="ucapan-quote">"${displayUcapan}"</div>
         </div>
         <div class="mobile-card-meta">
           <div>📅 Antar: <b>${p.tanggal_antar || '-'}</b></div>
@@ -237,10 +249,12 @@ async function openPesananModal(id = null) {
   const title = document.getElementById('modal-pesanan-title');
   const form = document.getElementById('form-pesanan');
 
+  const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().split('T')[0];
+
   let data = {
     id: '',
-    tanggal: new Date().toISOString().split('T')[0],
-    tanggal_antar: new Date().toISOString().split('T')[0],
+    tanggal: today,
+    tanggal_antar: today,
     nama_pemesan: '',
     no_wa: '',
     lokasi_pengantaran: '',
@@ -262,8 +276,8 @@ async function openPesananModal(id = null) {
   }
 
   form.pesanan_id.value = data.id || '';
-  form.tanggal.value = data.tanggal || new Date().toISOString().split('T')[0];
-  form.tanggal_antar.value = data.tanggal_antar || data.tanggal || new Date().toISOString().split('T')[0];
+  form.tanggal.value = data.tanggal || today;
+  form.tanggal_antar.value = data.tanggal_antar || data.tanggal || today;
   form.nama_pemesan.value = data.nama_pemesan || '';
   if (form.no_wa) form.no_wa.value = data.no_wa || '';
   form.lokasi_pengantaran.value = data.lokasi_pengantaran || '';
@@ -366,7 +380,7 @@ function openNotaInstanModal() {
   form.reset();
 
   // Set tanggal hari ini secara default
-  const today = new Date().toISOString().split('T')[0];
+  const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().split('T')[0];
   const tglInput = document.getElementById('nota-instan-tgl');
   const tglAntarInput = document.getElementById('nota-instan-tgl-antar');
   const noNotaInput = document.getElementById('nota-instan-no');
@@ -392,11 +406,12 @@ async function handleCetakNotaInstan(e) {
   const form = document.getElementById('form-nota-instan');
   if (!form) return;
 
+  const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().split('T')[0];
   const formData = new FormData(form);
   const harga = parseFloat(formData.get('harga')) || 0;
   const dibayar = parseFloat(formData.get('dibayar')) || 0;
   const noNota = (formData.get('no_nota') || '').trim() || `MANUAL-${Date.now().toString().slice(-6)}`;
-  const tanggal = formData.get('tanggal') || new Date().toISOString().split('T')[0];
+  const tanggal = formData.get('tanggal') || today;
   const tanggalAntar = formData.get('tanggal_antar') || tanggal;
   const namaPemesan = (formData.get('nama_pemesan') || '').trim() || 'Pelanggan';
   const noWa = (formData.get('no_wa') || '').trim();
@@ -576,6 +591,14 @@ async function printInvoiceObject(p) {
       </tr>
     </table>
   </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.focus();
+        window.print();
+      }, 350);
+    };
+  </script>
 </body></html>`;
 
   // Open popup window for print — bypasses all @media print CSS conflicts
@@ -588,13 +611,13 @@ async function printInvoiceObject(p) {
   printWin.document.write(printHtml);
   printWin.document.close();
 
-  // Wait for all images to load, then print
-  printWin.onload = function() {
-    setTimeout(() => {
+  // Fallback trigger cetak jika onload window tidak terpicu
+  setTimeout(() => {
+    try {
       printWin.focus();
       printWin.print();
-    }, 400);
-  };
+    } catch (e) {}
+  }, 500);
 }
 
 // Wrapper cetak nota untuk data pesanan yang tersimpan di database

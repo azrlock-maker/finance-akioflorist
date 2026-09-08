@@ -124,6 +124,27 @@ async function seedDefaultSettings() {
   }
 }
 
+// Global Helper Escape Karakter Khusus untuk HTML & Atribut
+function escapeAttr(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/\n/g, ' ')
+    .replace(/\r/g, '');
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Generate Nomor Nota Otomatis (INV + YYYY + 001)
 async function generateNoNota(tanggalStr) {
   const tahun = tanggalStr ? tanggalStr.substring(0, 4) : new Date().getFullYear().toString();
@@ -133,23 +154,23 @@ async function generateNoNota(tanggalStr) {
     .filter(p => p.no_nota && p.no_nota.startsWith(prefix))
     .toArray();
     
-  if (matches.length > 0) {
-    matches.sort((a, b) => (b.id || 0) - (a.id || 0));
-    const lastNota = matches[0].no_nota;
-    try {
-      const urutan = parseInt(lastNota.substring(7));
-      const nextNum = (isNaN(urutan) ? 0 : urutan) + 1;
-      return `INV${tahun}${String(nextNum).padStart(3, '0')}`;
-    } catch (e) {
-      return `INV${tahun}001`;
+  let maxUrutan = 0;
+  for (const p of matches) {
+    if (p.no_nota && p.no_nota.startsWith(prefix)) {
+      const numStr = p.no_nota.substring(prefix.length);
+      const num = parseInt(numStr, 10);
+      if (!isNaN(num) && num > maxUrutan) {
+        maxUrutan = num;
+      }
     }
   }
-  return `INV${tahun}001`;
+  const nextNum = maxUrutan + 1;
+  return `${prefix}${String(nextNum).padStart(3, '0')}`;
 }
 
 // Tambah Pesanan Baru + Otomatis Kas Pemasukan jika ada DP/Pelunasan
 async function dbTambahPesanan(data) {
-  const tanggal = data.tanggal || new Date().toISOString().split('T')[0];
+  const tanggal = data.tanggal || getTodayLocal();
   const no_nota = await generateNoNota(tanggal);
   const nama_pemesan_clean = (data.nama_pemesan || '').trim();
   const harga = parseFloat(data.harga) || 0;
@@ -187,7 +208,7 @@ async function dbTambahPesanan(data) {
   return pesananId;
 }
 
-// Update Pesanan + Update Transaksi Kas Terkait
+// Update Pesanan + Update Transaksi Kas Terkait (Bebas Double Counting)
 async function dbUpdatePesanan(id, data) {
   const pesanan = await db.pesanan.get(id);
   if (!pesanan) return;
@@ -198,6 +219,7 @@ async function dbUpdatePesanan(id, data) {
   const dibayar = parseFloat(data.dibayar) || 0;
   const status_lunas = dibayar >= harga ? 1 : (parseInt(data.status_lunas) || 0);
   const tanggal = data.tanggal || pesanan.tanggal;
+  const dibayarLama = parseFloat(pesanan.dibayar) || 0;
 
   await db.pesanan.update(id, {
     tanggal,
@@ -213,33 +235,59 @@ async function dbUpdatePesanan(id, data) {
   });
 
   if (no_nota) {
-    const kasRows = await db.keuangan
-      .filter(k => k.no_nota === no_nota && k.keterangan && k.keterangan.startsWith('Pembayaran Pesanan'))
-      .toArray();
+    // Jika jumlah dibayar berubah, rekonsiliasi kas agar totalnya presisi dan bebas duplikasi
+    if (Math.abs(dibayar - dibayarLama) > 0.01) {
+      // Hapus seluruh transaksi kas lama untuk nomor nota ini (baik DP, cicilan, maupun pelunasan)
+      await db.keuangan.where('no_nota').equals(no_nota).delete();
 
-    if (kasRows.length > 0) {
       if (dibayar > 0) {
-        await db.keuangan.update(kasRows[0].id, {
+        await db.keuangan.add({
           tanggal,
+          jenis_transaksi: 'Pemasukan',
+          keterangan: `Pembayaran Pesanan ${nama_pemesan_clean} (Nota: ${no_nota})`,
           nominal: dibayar,
-          keterangan: `Pembayaran Pesanan ${nama_pemesan_clean} (Nota: ${no_nota})`
+          no_nota
         });
-      } else {
-        await db.keuangan.delete(kasRows[0].id);
       }
-    } else if (dibayar > 0) {
-      await db.keuangan.add({
-        tanggal,
-        jenis_transaksi: 'Pemasukan',
-        keterangan: `Pembayaran Pesanan ${nama_pemesan_clean} (Nota: ${no_nota})`,
-        nominal: dibayar,
-        no_nota
-      });
+    } else {
+      // Jika jumlah dibayar TIDAK berubah, cukup update keterangan nama pemesan jika berubah
+      const kasRows = await db.keuangan.where('no_nota').equals(no_nota).toArray();
+      for (const k of kasRows) {
+        if (k.keterangan && k.keterangan.includes(`(Nota: ${no_nota})`)) {
+          const updatedKet = k.keterangan
+            .replace(/Pesanan [^(]+ \(Nota:/, `Pesanan ${nama_pemesan_clean} (Nota:`)
+            .replace(/Hutang [^(]+ \(Nota:/, `Hutang ${nama_pemesan_clean} (Nota:`);
+          if (updatedKet !== k.keterangan) {
+            await db.keuangan.update(k.id, { keterangan: updatedKet });
+          }
+        }
+      }
     }
   }
 
   if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
   if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync');
+}
+
+// Global Unified Handler Update Status Proses
+async function handleChangeStatusProsesGlobal(id, statusBaru, callbackAfterUpdate) {
+  try {
+    let gpsData = null;
+    if (statusBaru === 'Papan Di Antar' && typeof captureCurrentGpsLocation === 'function') {
+      gpsData = await captureCurrentGpsLocation();
+    }
+    await dbUpdateStatusProses(id, statusBaru, gpsData);
+    if (typeof callbackAfterUpdate === 'function') {
+      callbackAfterUpdate();
+    } else {
+      if (typeof renderProsesModule === 'function') renderProsesModule();
+      if (typeof renderJadwalModule === 'function') renderJadwalModule();
+      if (typeof renderDashboardModule === 'function') renderDashboardModule();
+      if (typeof renderPesananModule === 'function') renderPesananModule();
+    }
+  } catch (err) {
+    console.error('[StatusProses] Gagal update status:', err);
+  }
 }
 
 // Tambah Catatan Transaksi Kas Manual (Pengeluaran / Pemasukan)

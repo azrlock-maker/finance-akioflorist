@@ -137,17 +137,25 @@ async function renderProsesModule() {
 }
 
 async function handleChangeStatusProses(id, newStatus) {
-  try {
-    let gpsData = null;
-    if (newStatus === 'Papan Di Antar' && typeof captureCurrentGpsLocation === 'function') {
-      gpsData = await captureCurrentGpsLocation();
+  if (typeof handleChangeStatusProsesGlobal === 'function') {
+    await handleChangeStatusProsesGlobal(id, newStatus, () => {
+      renderProsesModule();
+      if (typeof renderDashboardModule === 'function') renderDashboardModule();
+      if (typeof renderJadwalModule === 'function') renderJadwalModule();
+    });
+  } else {
+    try {
+      let gpsData = null;
+      if (newStatus === 'Papan Di Antar' && typeof captureCurrentGpsLocation === 'function') {
+        gpsData = await captureCurrentGpsLocation();
+      }
+      await dbUpdateStatusProses(id, newStatus, gpsData);
+      renderProsesModule();
+      if (typeof renderDashboardModule === 'function') renderDashboardModule();
+      if (typeof renderJadwalModule === 'function') renderJadwalModule();
+    } catch (err) {
+      console.error('[Proses] Error updating status:', err);
     }
-    await dbUpdateStatusProses(id, newStatus, gpsData);
-    renderProsesModule();
-    if (typeof renderDashboardModule === 'function') renderDashboardModule();
-    if (typeof renderJadwalModule === 'function') renderJadwalModule();
-  } catch (err) {
-    console.error('[Proses] Error updating status:', err);
   }
 }
 

@@ -9,7 +9,7 @@ async function renderJadwalModule() {
   selectedJadwalIds.clear();
 
   const allPesanan = await db.pesanan.toArray();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().split('T')[0];
 
   // Filter HANYA pesanan yang BELUM diantar (status_proses !== 'Papan Di Antar')
   const pendingPesanan = allPesanan.filter(p => p.status_proses !== 'Papan Di Antar');
@@ -70,33 +70,39 @@ async function renderJadwalModule() {
               </thead>
               <tbody>
                 ${grouped[tgl].map(p => {
-                  const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
-                  const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
-                  const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+                  const safeNama = typeof escapeAttr === 'function' ? escapeAttr(p.nama_pemesan) : (p.nama_pemesan || '').replace(/'/g, "\\'");
+                  const safeWa = typeof escapeAttr === 'function' ? escapeAttr(p.no_wa) : (p.no_wa || '').replace(/'/g, "\\'");
+                  const safeNota = typeof escapeAttr === 'function' ? escapeAttr(p.no_nota) : (p.no_nota || '').replace(/'/g, "\\'");
+                  const displayNama = typeof escapeHtml === 'function' ? escapeHtml(p.nama_pemesan || '-') : (p.nama_pemesan || '-');
+                  const displayJenis = typeof escapeHtml === 'function' ? escapeHtml(p.jenis_papan || '-') : (p.jenis_papan || '-');
+                  const displayUcapan = typeof escapeHtml === 'function' ? escapeHtml(p.ucapan || '-') : (p.ucapan || '-');
+                  const displayLokasi = typeof escapeHtml === 'function' ? escapeHtml(p.lokasi_pengantaran || '-') : (p.lokasi_pengantaran || '-');
+                  const displayNota = typeof escapeHtml === 'function' ? escapeHtml(p.no_nota || '-') : (p.no_nota || '-');
+
                   return `
                   <tr>
                     <td style="text-align:center;">
                       <input type="checkbox" class="jadwal-check-item" data-group="${tgl}" value="${p.id}" 
                              onchange="onJadwalCheckChange(this)" style="width:18px; height:18px; cursor:pointer;">
                     </td>
-                    <td><b>${p.no_nota || '-'}</b></td>
+                    <td><b>${displayNota}</b></td>
                     <td>
                       <div style="cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem;"
                            onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
-                        <b>${p.nama_pemesan || '-'}</b>
+                        <b>${displayNama}</b>
                         <span style="color:#25D366;">💬</span>
                       </div>
-                      ${p.no_wa ? `<br><small style="color:#25D366; font-weight:600; cursor:pointer;" onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">📱 ${p.no_wa}</small>` : ''}
+                      ${p.no_wa ? `<br><small style="color:#25D366; font-weight:600; cursor:pointer;" onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">📱 ${typeof escapeHtml === 'function' ? escapeHtml(p.no_wa) : p.no_wa}</small>` : ''}
                     </td>
                     <td>
-                      <span class="badge badge-proses">${p.jenis_papan}</span><br>
-                      <small style="color:var(--text-muted); font-style:italic;">"${p.ucapan || '-'}"</small>
+                      <span class="badge badge-proses">${displayJenis}</span><br>
+                      <small style="color:var(--text-muted); font-style:italic;">"${displayUcapan}"</small>
                     </td>
                     <td>
                       ${(() => {
                         const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
                         return `
-                          📍 ${p.lokasi_pengantaran || '-'}
+                          📍 ${displayLokasi}
                           ${gmapsUrl ? `<br><a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; font-size:0.8rem; font-weight:600; text-decoration:none;">🗺️ Buka Google Maps</a>` : ''}
                         `;
                       })()}
@@ -118,33 +124,39 @@ async function renderJadwalModule() {
           <!-- Tampilan Native Mobile Feed Cards (Khusus HP Armada) -->
           <div class="mobile-card-list">
             ${grouped[tgl].map(p => {
-              const safeNama = (p.nama_pemesan || '').replace(/'/g, "\\'");
-              const safeWa = (p.no_wa || '').replace(/'/g, "\\'");
-              const safeNota = (p.no_nota || '').replace(/'/g, "\\'");
+              const safeNama = typeof escapeAttr === 'function' ? escapeAttr(p.nama_pemesan) : (p.nama_pemesan || '').replace(/'/g, "\\'");
+              const safeWa = typeof escapeAttr === 'function' ? escapeAttr(p.no_wa) : (p.no_wa || '').replace(/'/g, "\\'");
+              const safeNota = typeof escapeAttr === 'function' ? escapeAttr(p.no_nota) : (p.no_nota || '').replace(/'/g, "\\'");
+              const displayNama = typeof escapeHtml === 'function' ? escapeHtml(p.nama_pemesan || '-') : (p.nama_pemesan || '-');
+              const displayJenis = typeof escapeHtml === 'function' ? escapeHtml(p.jenis_papan || '-') : (p.jenis_papan || '-');
+              const displayUcapan = typeof escapeHtml === 'function' ? escapeHtml(p.ucapan || '-') : (p.ucapan || '-');
+              const displayLokasi = typeof escapeHtml === 'function' ? escapeHtml(p.lokasi_pengantaran || '-') : (p.lokasi_pengantaran || '-');
+              const displayNota = typeof escapeHtml === 'function' ? escapeHtml(p.no_nota || '-') : (p.no_nota || '-');
               const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
+
               return `
               <div class="mobile-card-item">
                 <div class="mobile-card-header">
-                  <span class="nota-no">📄 ${p.no_nota || '-'}</span>
+                  <span class="nota-no">📄 ${displayNota}</span>
                   <span class="badge badge-proses">${p.status_proses || 'Data Masuk'}</span>
                 </div>
                 <div class="mobile-card-body">
                   <div class="customer-name" style="cursor:pointer; display:inline-flex; align-items:center; gap:0.35rem;"
                        onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
-                    <span>${p.nama_pemesan || '-'}</span>
+                    <span>${displayNama}</span>
                     <span style="color:#25D366; font-size:1.05rem;">💬</span>
                   </div>
                   ${p.no_wa ? `
                     <div style="font-size:0.82rem; color:#25D366; font-weight:600; cursor:pointer;" 
                          onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
-                      📱 ${p.no_wa}
+                      📱 ${typeof escapeHtml === 'function' ? escapeHtml(p.no_wa) : p.no_wa}
                     </div>
                   ` : ''}
                   <div style="font-size:0.85rem; color:#60a5fa; font-weight:600; margin-top:0.25rem; display:flex; justify-content:space-between; align-items:center;">
-                    <span>📍 ${p.lokasi_pengantaran || '-'}</span>
+                    <span>📍 ${displayLokasi}</span>
                     ${gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; font-size:0.8rem; font-weight:600; text-decoration:none;">🗺️ Maps</a>` : ''}
                   </div>
-                  <div class="ucapan-quote">"${p.ucapan || '-'}"</div>
+                  <div class="ucapan-quote">"${displayUcapan}"</div>
                 </div>
                 <div class="mobile-card-actions" style="margin-top:0.5rem;">
                   <button class="btn btn-success" style="width:100%;" onclick="handleChangeStatusProses(${p.id}, 'Papan Di Antar')">🚚 Tandai Selesai Diantar</button>
@@ -210,10 +222,26 @@ async function handleBulkUpdateStatusAntar() {
     if (typeof captureCurrentGpsLocation === 'function') {
       gpsData = await captureCurrentGpsLocation();
     }
+
+    const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().split('T')[0];
+    const updatePayload = {
+      status_proses: 'Papan Di Antar',
+      tgl_status_antar: today
+    };
+    if (gpsData && gpsData.lat && gpsData.lng) {
+      updatePayload.gps_lat = gpsData.lat;
+      updatePayload.gps_lng = gpsData.lng;
+      updatePayload.gps_antar = `https://www.google.com/maps?q=${gpsData.lat},${gpsData.lng}`;
+    }
+
     const ids = Array.from(selectedJadwalIds);
     for (const id of ids) {
-      await dbUpdateStatusProses(id, 'Papan Di Antar', gpsData);
+      await db.pesanan.update(id, updatePayload);
     }
+
+    // Trigger sync cloud satu kali setelah seluruh batch selesai
+    if (typeof autoSyncBackgroundPush === 'function') autoSyncBackgroundPush();
+    if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync', null, true);
 
     selectedJadwalIds.clear();
     alert(`✅ Berhasil memperbarui ${count} papan menjadi "Papan Di Antar"!`);
@@ -224,12 +252,20 @@ async function handleBulkUpdateStatusAntar() {
 }
 
 async function handleChangeStatusProses(id, statusBaru) {
-  let gpsData = null;
-  if (statusBaru === 'Papan Di Antar' && typeof captureCurrentGpsLocation === 'function') {
-    gpsData = await captureCurrentGpsLocation();
+  if (typeof handleChangeStatusProsesGlobal === 'function') {
+    await handleChangeStatusProsesGlobal(id, statusBaru, () => {
+      renderJadwalModule();
+      if (typeof renderDashboardModule === 'function') renderDashboardModule();
+      if (typeof renderProsesModule === 'function') renderProsesModule();
+    });
+  } else {
+    let gpsData = null;
+    if (statusBaru === 'Papan Di Antar' && typeof captureCurrentGpsLocation === 'function') {
+      gpsData = await captureCurrentGpsLocation();
+    }
+    await dbUpdateStatusProses(id, statusBaru, gpsData);
+    renderJadwalModule();
+    if (typeof renderDashboardModule === 'function') renderDashboardModule();
+    if (typeof renderProsesModule === 'function') renderProsesModule();
   }
-  await dbUpdateStatusProses(id, statusBaru, gpsData);
-  renderJadwalModule();
-  if (typeof renderDashboardModule === 'function') renderDashboardModule();
-  if (typeof renderProsesModule === 'function') renderProsesModule();
 }

@@ -52,17 +52,18 @@ async function renderHutangModule() {
           </thead>
           <tbody>
             ${rekap.length > 0 ? rekap.map(h => {
-              const safeNama = (h.nama || '').replace(/'/g, "\\'");
-              const safeWa = (h.no_wa || '').replace(/'/g, "\\'");
+              const safeNama = typeof escapeAttr === 'function' ? escapeAttr(h.nama) : (h.nama || '').replace(/'/g, "\\'");
+              const safeWa = typeof escapeAttr === 'function' ? escapeAttr(h.no_wa) : (h.no_wa || '').replace(/'/g, "\\'");
+              const displayNama = typeof escapeHtml === 'function' ? escapeHtml(h.nama || '-') : (h.nama || '-');
               return `
               <tr>
                 <td>
                   <div style="cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem;"
                        onclick="handleWaClick(event, '${safeWa}', '${safeNama}', 'Tunggakan Sisa Hutang', null)">
-                    <b>${h.nama}</b>
+                    <b>${displayNama}</b>
                     <span style="color:#25D366;">💬</span>
                   </div>
-                  ${h.no_wa ? `<br><small style="color:#25D366; font-weight:600; cursor:pointer;" onclick="handleWaClick(event, '${safeWa}', '${safeNama}', 'Tunggakan Sisa Hutang', null)">📱 ${h.no_wa}</small>` : ''}
+                  ${h.no_wa ? `<br><small style="color:#25D366; font-weight:600; cursor:pointer;" onclick="handleWaClick(event, '${safeWa}', '${safeNama}', 'Tunggakan Sisa Hutang', null)">📱 ${typeof escapeHtml === 'function' ? escapeHtml(h.no_wa) : h.no_wa}</small>` : ''}
                 </td>
                 <td><span class="badge badge-belum">${h.total_tunggakan} Pesanan</span></td>
                 <td><small style="color:var(--text-muted);">${h.tgl_awal || '-'}</small></td>
@@ -94,14 +95,15 @@ async function renderHutangModule() {
       <!-- Tampilan Native Mobile Feed Cards (Khusus HP) -->
       <div class="mobile-card-list">
         ${rekap.length > 0 ? rekap.map(h => {
-          const safeNama = (h.nama || '').replace(/'/g, "\\'");
-          const safeWa = (h.no_wa || '').replace(/'/g, "\\'");
+          const safeNama = typeof escapeAttr === 'function' ? escapeAttr(h.nama) : (h.nama || '').replace(/'/g, "\\'");
+          const safeWa = typeof escapeAttr === 'function' ? escapeAttr(h.no_wa) : (h.no_wa || '').replace(/'/g, "\\'");
+          const displayNama = typeof escapeHtml === 'function' ? escapeHtml(h.nama || '-') : (h.nama || '-');
           return `
           <div class="mobile-card-item">
             <div class="mobile-card-header">
               <span class="customer-name" style="cursor:pointer; display:inline-flex; align-items:center; gap:0.35rem;"
                     onclick="handleWaClick(event, '${safeWa}', '${safeNama}', 'Tunggakan Sisa Hutang', null)">
-                <span>${h.nama}</span>
+                <span>${displayNama}</span>
                 <span style="color:#25D366; font-size:1.05rem;">💬</span>
               </span>
               <span class="badge badge-belum">${h.total_tunggakan} Tunggakan</span>
@@ -109,7 +111,7 @@ async function renderHutangModule() {
             ${h.no_wa ? `
               <div style="font-size:0.82rem; color:#25D366; font-weight:600; cursor:pointer; padding:0 1rem;"
                    onclick="handleWaClick(event, '${safeWa}', '${safeNama}', 'Tunggakan Sisa Hutang', null)">
-                📱 ${h.no_wa} (Chat WA Remind)
+                📱 ${typeof escapeHtml === 'function' ? escapeHtml(h.no_wa) : h.no_wa} (Chat WA Remind)
               </div>
             ` : ''}
             <div class="mobile-card-meta">
@@ -139,6 +141,11 @@ async function handleBayarCicilanPelanggan(namaPelanggan, totalHutang) {
     const jumlah = parseFloat(inputVal.replace(/\./g, '').replace(/,/g, ''));
     if (isNaN(jumlah) || jumlah <= 0) {
       alert('Jumlah pembayaran cicilan tidak valid!');
+      return;
+    }
+
+    if (jumlah > totalHutang) {
+      alert(`⚠️ Jumlah cicilan (${formatRp(jumlah)}) melebihi sisa hutang (${formatRp(totalHutang)}).\nSilakan masukkan nominal maksimal sebesar total sisa hutang.`);
       return;
     }
 
@@ -178,7 +185,7 @@ async function printNotaGabungan(namaPelanggan) {
   const totalDibayarSemua = unpaid.reduce((acc, p) => acc + (p.dibayar || 0), 0);
   const totalSisaHutang = totalHargaSemua - totalDibayarSemua;
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().split('T')[0];
 
   // Calculate HMAC Digital Signature
   const signature = await generateInvoiceDigitalSignature('GABUNGAN', todayStr, targetNama, totalSisaHutang);
@@ -316,6 +323,14 @@ async function printNotaGabungan(namaPelanggan) {
       </tr>
     </table>
   </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.focus();
+        window.print();
+      }, 350);
+    };
+  </script>
 </body></html>`;
 
   // Open popup window for print — bypasses all @media print CSS conflicts
@@ -328,11 +343,11 @@ async function printNotaGabungan(namaPelanggan) {
   printWin.document.write(printHtml);
   printWin.document.close();
 
-  // Wait for all images to load, then print
-  printWin.onload = function() {
-    setTimeout(() => {
+  // Fallback trigger cetak jika onload window tidak terpicu
+  setTimeout(() => {
+    try {
       printWin.focus();
       printWin.print();
-    }, 400);
-  };
+    } catch (e) {}
+  }, 500);
 }

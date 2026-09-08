@@ -1,4 +1,4 @@
-const CACHE_NAME = 'papan-bunga-finance-v35';
+const CACHE_NAME = 'papan-bunga-finance-v36';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -59,7 +59,8 @@ self.addEventListener('fetch', (e) => {
         return cachedResponse;
       }
       return fetch(e.request).catch(() => {
-        if (e.request.headers.get('accept').includes('text/html')) {
+        const accept = e.request.headers.get('accept');
+        if (accept && accept.includes('text/html')) {
           return caches.match('./index.html');
         }
       });

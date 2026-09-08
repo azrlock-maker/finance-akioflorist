@@ -193,6 +193,11 @@ async function renderLaporanModule() {
       const lineColor = laporanSelectedMode === 'Jumlah Order' ? '#3b82f6' : '#10b981';
       const bgGradientColor = laporanSelectedMode === 'Jumlah Order' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)';
 
+      if (typeof Chart.getChart === 'function') {
+        const existingChart = Chart.getChart(ctx);
+        if (existingChart) existingChart.destroy();
+      }
+
       new Chart(ctx, {
         type: 'line',
         data: {
@@ -239,7 +244,7 @@ function setLaporanMode(mode) {
   renderLaporanModule();
 }
 
-// Helper Export Data CSV
+// Helper Export Data CSV (With UTF-8 BOM for Indonesian Excel Compatibility)
 async function exportDataCSV() {
   const pesanan = await db.pesanan.toArray();
   let csv = 'No Nota,Tanggal,Pemesan,Jenis Papan,Harga,Dibayar,Status Lunas,Lokasi\n';
@@ -248,10 +253,11 @@ async function exportDataCSV() {
     csv += `"${p.no_nota || ''}","${p.tanggal || ''}","${(p.nama_pemesan || '').replace(/"/g, '""')}","${p.jenis_papan || ''}",${p.harga || 0},${p.dibayar || 0},"${p.status_lunas ? 'LUNAS' : 'BELUM'}","${(p.lokasi_pengantaran || '').replace(/"/g, '""')}"\n`;
   });
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().split('T')[0];
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.setAttribute('download', `rekap_pesanan_${new Date().toISOString().split('T')[0]}.csv`);
+  link.setAttribute('download', `rekap_pesanan_${today}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

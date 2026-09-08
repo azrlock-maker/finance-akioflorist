@@ -220,7 +220,7 @@ function openKeuanganModal() {
   const modal = document.getElementById('modal-keuangan');
   const form = document.getElementById('form-keuangan');
   
-  form.tanggal.value = new Date().toISOString().split('T')[0];
+  form.tanggal.value = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().split('T')[0];
   form.jenis_transaksi.value = 'Pengeluaran';
   form.keterangan.value = '';
   form.nominal.value = '';

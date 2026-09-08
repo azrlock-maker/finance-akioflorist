@@ -14,7 +14,7 @@ async function renderDashboardModule() {
   if (!container) return;
 
   const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : now.toISOString().split('T')[0];
 
   const allPesanan = await db.pesanan.toArray();
   const allKeuangan = await db.keuangan.toArray();
@@ -183,6 +183,11 @@ async function renderDashboardModule() {
         labels = ['Belum Ada Data'];
         chartData = [1];
         bgColors = ['#64748b'];
+      }
+
+      if (typeof Chart.getChart === 'function') {
+        const existingChart = Chart.getChart(ctx);
+        if (existingChart) existingChart.destroy();
       }
 
       new Chart(ctx, {

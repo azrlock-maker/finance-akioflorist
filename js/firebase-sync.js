@@ -158,41 +158,56 @@ function attachRealtimeListeners() {
   });
 }
 
-// ─── Broadcast Perubahan Data Lokal ke Cloud ───────────────────────────────
+// ─── Broadcast Perubahan Data Lokal ke Cloud (With Debounce Protection) ───
 
-async function pushRealtimeChange(type, payload) {
+let pushDebounceTimer = null;
+
+async function pushRealtimeChange(type, payload, immediate = false) {
   if (!firebaseDb || !realtimeState.isConnected || isPullingFromCloud) return;
 
-  try {
-    const storeRef = firebaseDb.ref(`stores/${currentStorePin}`);
-    
-    // Upload full database snapshot ke cloud untuk konsistensi sempurna
-    const pesanan = await db.pesanan.toArray();
-    const keuangan = await db.keuangan.toArray();
-    const pesananMap = {};
-    const keuanganMap = {};
-    pesanan.forEach(p => { if (p.id) pesananMap[p.id] = p; });
-    keuangan.forEach(k => { if (k.id) keuanganMap[k.id] = k; });
+  if (pushDebounceTimer) {
+    clearTimeout(pushDebounceTimer);
+    pushDebounceTimer = null;
+  }
 
-    await storeRef.set({
-      pesanan: pesananMap,
-      keuangan: keuanganMap,
-      last_updated: Date.now()
-    });
+  const executePush = async () => {
+    try {
+      const storeRef = firebaseDb.ref(`stores/${currentStorePin}`);
+      
+      // Upload full database snapshot ke cloud untuk konsistensi sempurna
+      const pesanan = await db.pesanan.toArray();
+      const keuangan = await db.keuangan.toArray();
+      const pesananMap = {};
+      const keuanganMap = {};
+      pesanan.forEach(p => { if (p.id) pesananMap[p.id] = p; });
+      keuangan.forEach(k => { if (k.id) keuanganMap[k.id] = k; });
 
-    const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    realtimeState.lastSyncTime = now;
-    realtimeState.lastError = null;
-    localStorage.setItem('realtime_last_sync', now);
-    updateRealtimeUI();
-  } catch (err) {
-    console.error('[Realtime Push Error]', err);
-    realtimeState.lastError = err.message || 'Gagal mengirim data ke cloud';
-    updateRealtimeUI();
+      await storeRef.set({
+        pesanan: pesananMap,
+        keuangan: keuanganMap,
+        last_updated: Date.now()
+      });
+
+      const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      realtimeState.lastSyncTime = now;
+      realtimeState.lastError = null;
+      localStorage.setItem('realtime_last_sync', now);
+      updateRealtimeUI();
+    } catch (err) {
+      console.error('[Realtime Push Error]', err);
+      realtimeState.lastError = err.message || 'Gagal mengirim data ke cloud';
+      updateRealtimeUI();
+    }
+  };
+
+  if (immediate) {
+    await executePush();
+  } else {
+    pushDebounceTimer = setTimeout(executePush, 300);
   }
 }
 
-// ─── Ganti PIN Toko / Pasangkan HP dengan PC ─────────────────────────────────
+// ─── Ganti PIN Toko / Pasangkan HP dengan PC (Aman Data Loss) ───────────────
 
 async function setStoreSyncPin(newPin) {
   if (!newPin || !newPin.trim()) return;
@@ -210,12 +225,26 @@ async function setStoreSyncPin(newPin) {
   if (firebaseDb) {
     firebaseDb.ref(`stores`).off();
     attachRealtimeListeners();
-    // Lakukan full sync awal
-    await pushRealtimeChange('full_sync');
+
+    try {
+      // Periksa apakah cloud sudah memiliki data untuk PIN ini
+      const checkSnap = await firebaseDb.ref(`stores/${cleanPin}`).once('value');
+      const cloudExisting = checkSnap.val();
+
+      // Jika cloud masih kosong, baru unggah data lokal sebagai inisialisasi awal
+      if (!cloudExisting || (!cloudExisting.pesanan && !cloudExisting.keuangan)) {
+        const localCount = await db.pesanan.count();
+        if (localCount > 0) {
+          await pushRealtimeChange('full_sync', null, true);
+        }
+      }
+    } catch (e) {
+      console.warn('[Realtime PIN Sync Check Error]', e);
+    }
   }
 
   updateRealtimeUI();
-  alert(`✅ PIN Sync Toko berhasil diubah menjadi: ${cleanPin}\nPastikan HP & PC Anda menggunakan PIN yang sama!`);
+  alert(`✅ PIN Sync Toko berhasil dihubungkan: ${cleanPin}\nData akan otomatis tersinkron antara PC & HP.`);
 }
 
 // ─── Tes Koneksi & Paksa Sinkronisasi Sekarang ──────────────────────────────
