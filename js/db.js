@@ -65,8 +65,8 @@ function getGmapsUrl(p) {
   return '';
 }
 
-// Global Helper WhatsApp
-function getWaUrl(noWa, nama = '', noNota = '') {
+// Global Helper WhatsApp dengan Template Pesan Otomatis
+function getWaUrl(noWa, context = 'pesanan', data = {}) {
   if (!noWa) return '';
   let cleaned = String(noWa).replace(/\D/g, '');
   if (!cleaned) return '';
@@ -76,18 +76,101 @@ function getWaUrl(noWa, nama = '', noNota = '') {
     cleaned = '62' + cleaned;
   }
 
-  return `https://wa.me/${cleaned}`;
+  const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
+  const namaToko = data.namaToko || 'AKIO FLORIST';
+  const nama = data.nama || 'Pelanggan';
+  let text = '';
+
+  if (context === 'pesanan') {
+    const statusBayar = (data.dibayar >= data.harga && data.harga > 0) ? 'LUNAS' : `Sisa ${formatRp((data.harga || 0) - (data.dibayar || 0))}`;
+    text = `Halo Kak *${nama}*,\n\nTerima kasih telah memesan karangan papan bunga di *${namaToko}*. 🙏💐\n\nBerikut rincian pesanan Anda:\n📄 *No. Nota:* ${data.noNota || '-'}\n🗓️ *Tgl Pengantaran:* ${data.tglAntar || '-'}\n📍 *Lokasi Tujuan:* ${data.lokasi || '-'}\n📦 *Jenis Papan:* ${data.jenisPapan || 'Papan Bunga'}\n📝 *Ucapan Tertulis:* "${data.ucapan || '-'}"\n💰 *Total Biaya:* ${formatRp(data.harga)} (*Status: ${statusBayar}*)\n\nPesanan Anda saat ini sedang kami proses dengan sebaik-baiknya. Terima kasih atas kepercayaannya! ✨`;
+  } else if (context === 'antar') {
+    text = `Halo Kak *${nama}*,\n\nKabar baik! Papan bunga pesanan Anda (*No. Nota: ${data.noNota || '-'}*) telah selesai kami antarkan dan terpasang rapi di lokasi:\n📍 *${data.lokasi || '-'}*\n\nBersama pesan ini, kami lampirkan foto dokumentasi papan bunga di lokasi acara ya Kak. 📸👇\n\nTerima kasih banyak telah mempercayakan karangan bunga Anda kepada *${namaToko}*. Semoga acaranya berjalan lancar dan sukses selalu! 🙏💐`;
+  } else if (context === 'hutang') {
+    text = `Halo Kak *${nama}*,\n\nSalam hangat dari *${namaToko}*. 🙏💐\n\nMengingat pesanan papan bunga telah selesai dikerjakan, kami ingin mengonfirmasikan perihal sisa tagihan atas nama *${nama}*:\n💰 *Total Sisa Tagihan:* *${formatRp(data.totalHutang)}*\n📋 *Rincian:* ${data.totalTunggakan || 1} Pesanan Belum Lunas\n\nMohon kesediaannya untuk melakukan penyelesaian pembayaran. Jika sudah melakukan transfer, mohon kirimkan bukti pembayarannya ke nomor ini ya Kak.\n\nTerima kasih banyak atas kerja sama dan kepercayaannya! 🙏✨`;
+  }
+
+  return text ? `https://wa.me/${cleaned}?text=${encodeURIComponent(text)}` : `https://wa.me/${cleaned}`;
 }
 
-function handleWaClick(e, noWa, nama, noNota, id) {
+function handleWaClick(e, noWa, context = 'pesanan', data = {}, id = null) {
   if (e && e.stopPropagation) e.stopPropagation();
+  // Backwards compatibility jika dipanggil format lama (e, noWa, nama, noNota, id)
+  if (typeof context === 'string' && context !== 'pesanan' && context !== 'antar' && context !== 'hutang') {
+    id = typeof data === 'number' ? data : id;
+    data = { nama: context, noNota: typeof data === 'string' ? data : '' };
+    context = 'pesanan';
+  }
+
   if (noWa && String(noWa).trim()) {
-    const url = getWaUrl(noWa, nama, noNota);
+    const url = getWaUrl(noWa, context, data);
     if (url) window.open(url, '_blank');
   } else {
-    if (confirm(`Nomor WhatsApp untuk pemesan "${nama || '-'}" belum diisi.\n\nApakah Anda ingin mengedit pesanan ini untuk menambahkan Nomor WA?`)) {
-      if (typeof openPesananModal === 'function') openPesananModal(id);
+    const nama = (data && data.nama) ? data.nama : '-';
+    if (id) {
+      if (confirm(`Nomor WhatsApp untuk pemesan "${nama}" belum diisi.\n\nApakah Anda ingin mengedit pesanan ini untuk menambahkan Nomor WA?`)) {
+        if (typeof openPesananModal === 'function') openPesananModal(id);
+      }
+    } else {
+      alert(`Nomor WhatsApp untuk pemesan/pelanggan "${nama}" belum diisi.\nSilakan tambahkan nomor WA pada data pesanan pemesan ini.`);
     }
+  }
+}
+
+// Helper Khusus Kirim WA Konfirmasi Pesanan Baru / Rincian
+async function handleWaPesananClick(e, id) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  try {
+    const p = await db.pesanan.get(id);
+    if (!p) return;
+    const config = await db.pengaturan.get(1) || {};
+    handleWaClick(e, p.no_wa, 'pesanan', {
+      nama: p.nama_pemesan,
+      noNota: p.no_nota,
+      tglAntar: p.tanggal_antar || p.tanggal,
+      lokasi: p.lokasi_pengantaran,
+      jenisPapan: p.jenis_papan,
+      ucapan: p.ucapan,
+      harga: p.harga,
+      dibayar: p.dibayar,
+      namaToko: config.nama_toko
+    }, p.id);
+  } catch (err) {
+    console.error('Gagal mengirim WA pesanan:', err);
+  }
+}
+
+// Helper Khusus Kirim WA Kabar Antar & Foto Dokumentasi
+async function handleWaAntarClick(e, id) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  try {
+    const p = await db.pesanan.get(id);
+    if (!p) return;
+    const config = await db.pengaturan.get(1) || {};
+    handleWaClick(e, p.no_wa, 'antar', {
+      nama: p.nama_pemesan,
+      noNota: p.no_nota,
+      lokasi: p.lokasi_pengantaran,
+      namaToko: config.nama_toko
+    }, p.id);
+  } catch (err) {
+    console.error('Gagal mengirim WA antar:', err);
+  }
+}
+
+// Helper Khusus Kirim WA Pengingat Hutang Pelanggan
+async function handleWaHutangClick(e, nama, noWa, totalHutang, totalTunggakan) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  try {
+    const config = await db.pengaturan.get(1) || {};
+    handleWaClick(e, noWa, 'hutang', {
+      nama: nama,
+      totalHutang: parseFloat(totalHutang) || 0,
+      totalTunggakan: parseInt(totalTunggakan) || 1,
+      namaToko: config.nama_toko
+    }, null);
+  } catch (err) {
+    console.error('Gagal mengirim WA hutang:', err);
   }
 }
 
@@ -518,6 +601,34 @@ async function dbImportFullBackupJSON(jsonStr) {
       await seedDefaultSettings();
     }
   });
+}
+
+// Reset / Kosongkan Seluruh Data Transaksi (Pesanan & Keuangan) dengan Auto-Backup Aman
+async function dbResetSemuaDataTransaksi() {
+  // 1. Ekspor data lengkap saat ini sebagai backup otomatis sebelum dihapus
+  const backupJson = await dbExportFullBackupJSON();
+  const dateStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().split('T')[0];
+  const blob = new Blob([backupJson], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `backup-sebelum-reset-${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+
+  // 2. Kosongkan tabel pesanan dan keuangan di IndexedDB lokal (pengaturan toko tetap dipertahankan)
+  await db.transaction('rw', db.pesanan, db.keuangan, async () => {
+    await db.pesanan.clear();
+    await db.keuangan.clear();
+  });
+
+  // 3. Sinkronisasi perubahan ke Firebase Realtime Database
+  if (typeof pushRealtimeChange === 'function') {
+    pushRealtimeChange('full_sync');
+  }
+
+  return true;
 }
 
 // Inisialisasi saat script dimuat

@@ -59,11 +59,12 @@ async function renderHutangModule() {
               <tr>
                 <td>
                   <div style="cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem;"
-                       onclick="handleWaClick(event, '${safeWa}', '${safeNama}', 'Tunggakan Sisa Hutang', null)">
+                       title="Kirim Pengingat Hutang via WhatsApp"
+                       onclick="handleWaHutangClick(event, '${safeNama}', '${safeWa}', ${h.total_hutang}, ${h.total_tunggakan})">
                     <b>${displayNama}</b>
                     <span style="color:#25D366;">💬</span>
                   </div>
-                  ${h.no_wa ? `<br><small style="color:#25D366; font-weight:600; cursor:pointer;" onclick="handleWaClick(event, '${safeWa}', '${safeNama}', 'Tunggakan Sisa Hutang', null)">📱 ${typeof escapeHtml === 'function' ? escapeHtml(h.no_wa) : h.no_wa}</small>` : ''}
+                  ${h.no_wa ? `<br><small style="color:#25D366; font-weight:600; cursor:pointer;" title="Kirim Pengingat Hutang via WhatsApp" onclick="handleWaHutangClick(event, '${safeNama}', '${safeWa}', ${h.total_hutang}, ${h.total_tunggakan})">📱 ${typeof escapeHtml === 'function' ? escapeHtml(h.no_wa) : h.no_wa}</small>` : ''}
                 </td>
                 <td><span class="badge badge-belum">${h.total_tunggakan} Pesanan</span></td>
                 <td><small style="color:var(--text-muted);">${h.tgl_awal || '-'}</small></td>
@@ -102,7 +103,8 @@ async function renderHutangModule() {
           <div class="mobile-card-item">
             <div class="mobile-card-header">
               <span class="customer-name" style="cursor:pointer; display:inline-flex; align-items:center; gap:0.35rem;"
-                    onclick="handleWaClick(event, '${safeWa}', '${safeNama}', 'Tunggakan Sisa Hutang', null)">
+                    title="Kirim Pengingat Hutang via WhatsApp"
+                    onclick="handleWaHutangClick(event, '${safeNama}', '${safeWa}', ${h.total_hutang}, ${h.total_tunggakan})">
                 <span>${displayNama}</span>
                 <span style="color:#25D366; font-size:1.05rem;">💬</span>
               </span>
@@ -110,7 +112,8 @@ async function renderHutangModule() {
             </div>
             ${h.no_wa ? `
               <div style="font-size:0.82rem; color:#25D366; font-weight:600; cursor:pointer; padding:0 1rem;"
-                   onclick="handleWaClick(event, '${safeWa}', '${safeNama}', 'Tunggakan Sisa Hutang', null)">
+                   title="Kirim Pengingat Hutang via WhatsApp"
+                   onclick="handleWaHutangClick(event, '${safeNama}', '${safeWa}', ${h.total_hutang}, ${h.total_tunggakan})">
                 📱 ${typeof escapeHtml === 'function' ? escapeHtml(h.no_wa) : h.no_wa} (Chat WA Remind)
               </div>
             ` : ''}

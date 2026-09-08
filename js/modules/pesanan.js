@@ -2,30 +2,7 @@
 
 let pesananSearchKeyword = '';
 
-function getWaUrl(noWa, nama = '', noNota = '') {
-  if (!noWa) return '';
-  let cleaned = String(noWa).replace(/\D/g, '');
-  if (!cleaned) return '';
-  if (cleaned.startsWith('0')) {
-    cleaned = '62' + cleaned.substring(1);
-  } else if (cleaned.startsWith('8')) {
-    cleaned = '62' + cleaned;
-  }
-
-  return `https://wa.me/${cleaned}`;
-}
-
-function handleWaClick(e, noWa, nama, noNota, id) {
-  if (e && e.stopPropagation) e.stopPropagation();
-  if (noWa && String(noWa).trim()) {
-    const url = getWaUrl(noWa, nama, noNota);
-    if (url) window.open(url, '_blank');
-  } else {
-    if (confirm(`Nomor WhatsApp untuk pemesan "${nama || '-'}" belum diisi.\n\nApakah Anda ingin mengedit pesanan ini untuk menambahkan Nomor WA?`)) {
-      openPesananModal(id);
-    }
-  }
-}
+// Helper WA and URLs are loaded globally from js/db.js
 
 function getPesananTableRowsHtml(filtered, formatRp) {
   if (filtered.length === 0) {
@@ -50,14 +27,14 @@ function getPesananTableRowsHtml(filtered, formatRp) {
         </td>
         <td>
           <div style="cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem;" 
-               title="Klik untuk chat WhatsApp pemesan"
-               onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+               title="Klik untuk chat WhatsApp pemesan (Rincian Pesanan)"
+               onclick="handleWaPesananClick(event, ${p.id})">
             <b style="color:var(--text-main); font-size:0.95rem;">${displayNama}</b>
             <span style="color:#25D366; font-size:0.95rem;">💬</span>
           </div><br>
           ${p.no_wa ? `
             <small style="color:#25D366; font-weight:600; cursor:pointer;" 
-                   onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})"
+                   onclick="handleWaPesananClick(event, ${p.id})"
                    title="Klik untuk chat WhatsApp">
               📱 ${typeof escapeHtml === 'function' ? escapeHtml(p.no_wa) : p.no_wa}
             </small><br>
@@ -89,9 +66,10 @@ function getPesananTableRowsHtml(filtered, formatRp) {
         </td>
         <td><span class="badge badge-siap">${p.status_proses || 'Data Masuk'}</span></td>
         <td style="text-align:right;">
-          <div style="display:inline-flex; gap:0.35rem;">
+          <div style="display:inline-flex; gap:0.35rem; flex-wrap:wrap; justify-content:flex-end;">
             ${!p.status_lunas ? `<button class="btn btn-success btn-sm" title="Tandai Lunas" onclick="handleTandaiLunas(${p.id})">✔ Lunas</button>` : ''}
-            <button class="btn btn-secondary btn-sm" title="Cetak Nota QR Code Verifikasi" onclick="printNotaPesanan(${p.id})">🖨️ Nota QR</button>
+            <button class="btn btn-secondary btn-sm" title="Cetak Nota Resmi A4 & QR Code" onclick="printNotaPesanan(${p.id})">🖨️ A4</button>
+            <button class="btn btn-secondary btn-sm" title="Cetak Struk Thermal (58mm / 80mm)" onclick="printThermalNotaPesanan(${p.id})">🧾 Struk</button>
             <button class="btn btn-secondary btn-sm" title="Edit" onclick="openPesananModal(${p.id})">✏️</button>
             <button class="btn btn-danger btn-sm" title="Hapus" onclick="handleHapusPesanan(${p.id})">🗑️</button>
           </div>
@@ -124,13 +102,13 @@ function getPesananMobileCardsHtml(filtered, formatRp) {
         </div>
         <div class="mobile-card-body">
           <div class="customer-name" style="cursor:pointer; display:inline-flex; align-items:center; gap:0.35rem;" 
-               onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+               onclick="handleWaPesananClick(event, ${p.id})">
             <span>${displayNama}</span>
             <span style="color:#25D366; font-size:1.05rem;">💬</span>
           </div>
           ${p.no_wa ? `
             <div style="font-size:0.82rem; color:#25D366; font-weight:600; cursor:pointer; margin-top:0.15rem;" 
-                 onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+                 onclick="handleWaPesananClick(event, ${p.id})">
               📱 ${typeof escapeHtml === 'function' ? escapeHtml(p.no_wa) : p.no_wa} (Chat WA)
             </div>
           ` : `
@@ -155,7 +133,8 @@ function getPesananMobileCardsHtml(filtered, formatRp) {
         </div>
         <div class="mobile-card-actions">
           ${!p.status_lunas ? `<button class="btn btn-success" onclick="handleTandaiLunas(${p.id})">✔ Lunas</button>` : ''}
-          <button class="btn btn-secondary" onclick="printNotaPesanan(${p.id})">📄 Nota QR</button>
+          <button class="btn btn-secondary" onclick="printNotaPesanan(${p.id})">📄 A4</button>
+          <button class="btn btn-secondary" onclick="printThermalNotaPesanan(${p.id})">🧾 Struk</button>
           <button class="btn btn-secondary" onclick="openPesananModal(${p.id})">✏️ Edit</button>
           <button class="btn btn-danger" style="flex:0.4;" onclick="handleHapusPesanan(${p.id})">🗑️</button>
         </div>
@@ -438,6 +417,42 @@ async function handleCetakNotaInstan(e) {
   await printInvoiceObject(adhocPesanan);
 }
 
+async function handleCetakThermalNotaInstan() {
+  const form = document.getElementById('form-nota-instan');
+  if (!form) return;
+
+  const today = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().split('T')[0];
+  const formData = new FormData(form);
+  const harga = parseFloat(formData.get('harga')) || 0;
+  const dibayar = parseFloat(formData.get('dibayar')) || 0;
+  const noNota = (formData.get('no_nota') || '').trim() || `MANUAL-${Date.now().toString().slice(-6)}`;
+  const tanggal = formData.get('tanggal') || today;
+  const tanggalAntar = formData.get('tanggal_antar') || tanggal;
+  const namaPemesan = (formData.get('nama_pemesan') || '').trim() || 'Pelanggan';
+  const noWa = (formData.get('no_wa') || '').trim();
+  const lokasiPengantaran = (formData.get('lokasi_pengantaran') || '').trim();
+  const jenisPapan = (formData.get('jenis_papan') || '').trim() || 'Papan Bunga';
+  const ucapan = (formData.get('ucapan') || '').trim();
+  const isLunas = (harga > 0 && dibayar >= harga) ? 1 : 0;
+
+  const adhocPesanan = {
+    no_nota: noNota,
+    tanggal: tanggal,
+    tanggal_antar: tanggalAntar,
+    nama_pemesan: namaPemesan,
+    no_wa: noWa,
+    lokasi_pengantaran: lokasiPengantaran,
+    jenis_papan: jenisPapan,
+    harga: harga,
+    dibayar: dibayar,
+    status_lunas: isLunas,
+    ucapan: ucapan
+  };
+
+  closeNotaInstanModal();
+  await printThermalReceiptObject(adhocPesanan);
+}
+
 // === FUNGSI UTAMA CETAK NOTA LENGKAP DENGAN LOGO, WATERMARK & QR CODE VERIFIKASI ===
 async function printInvoiceObject(p) {
   if (!p) return;
@@ -628,6 +643,161 @@ async function printNotaPesanan(id) {
     return;
   }
   await printInvoiceObject(p);
+}
+
+// === FUNGSI CETAK STRUK THERMAL (58mm / 80mm POS PRINTER) ===
+async function printThermalReceiptObject(p) {
+  if (!p) return;
+  const config = await db.pengaturan.get(1) || {};
+  const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
+
+  const namaToko = (config.nama_toko || 'AKIO FLORIST').toUpperCase();
+  const tagline = config.tagline || 'Pusat Karangan Bunga';
+  const alamat = config.alamat || '';
+  const telepon = config.telepon || '';
+  const noNota = p.no_nota || '-';
+  const tgl = p.tanggal || p.tanggal_antar || (typeof getTodayLocal === 'function' ? getTodayLocal() : '');
+  const tglAntar = p.tanggal_antar || '-';
+  const pemesan = p.nama_pemesan || '-';
+  const noWa = p.no_wa || '';
+  const lokasi = p.lokasi_pengantaran || '-';
+  const jenis = p.jenis_papan || 'Karangan Bunga';
+  const ucapan = p.ucapan || '';
+  const harga = parseFloat(p.harga) || 0;
+  const dibayar = parseFloat(p.dibayar) || 0;
+  const sisa = Math.max(0, harga - dibayar);
+  const isLunas = (harga > 0 && dibayar >= harga) || p.status_lunas == 1;
+
+  const printHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Struk - ${noNota}</title>
+  <style>
+    @page {
+      margin: 0;
+      size: 58mm auto;
+    }
+    @media print {
+      body { width: 58mm; margin: 0; padding: 2mm 3mm; }
+    }
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      line-height: 1.3;
+      color: #000;
+      background: #fff;
+      margin: 0 auto;
+      padding: 6px 4px;
+      width: 58mm;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .bold { font-weight: bold; }
+    .divider {
+      border-top: 1px dashed #000;
+      margin: 5px 0;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+    .store-name {
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border: 1px solid #000;
+      font-weight: bold;
+      margin-top: 3px;
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="text-center">
+    <div class="store-name">${namaToko}</div>
+    ${tagline ? `<div style="font-size:9px;">${tagline}</div>` : ''}
+    ${alamat ? `<div style="font-size:9px;">${alamat}</div>` : ''}
+    ${telepon ? `<div style="font-size:9px;">Telp/WA: ${telepon}</div>` : ''}
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="row"><span>Nota:</span><span class="bold">${noNota}</span></div>
+  <div class="row"><span>Tgl:</span><span>${tgl}</span></div>
+  <div class="row"><span>Customer:</span><span class="bold">${pemesan}</span></div>
+  ${noWa ? `<div class="row"><span>WA:</span><span>${noWa}</span></div>` : ''}
+  ${tglAntar && tglAntar !== '-' ? `<div class="row"><span>Tgl Antar:</span><span>${tglAntar}</span></div>` : ''}
+  ${lokasi && lokasi !== '-' ? `<div style="margin-top:2px; font-size:10px;"><b>Lokasi:</b> ${lokasi}</div>` : ''}
+
+  <div class="divider"></div>
+
+  <div style="font-weight:bold; margin-bottom:2px;">${jenis}</div>
+  ${ucapan && ucapan !== '-' ? `<div style="font-size:9.5px; font-style:italic; margin-bottom:3px; word-break:break-word;">"${ucapan}"</div>` : ''}
+
+  <div class="divider"></div>
+
+  <div class="row"><span>Total:</span><span class="bold">${formatRp(harga)}</span></div>
+  <div class="row"><span>Dibayar:</span><span>${formatRp(dibayar)}</span></div>
+  <div class="row bold">
+    <span>${isLunas ? 'Status:' : 'Sisa Tagihan:'}</span>
+    <span>${isLunas ? 'LUNAS' : formatRp(sisa)}</span>
+  </div>
+
+  <div class="text-center" style="margin-top:4px;">
+    <span class="badge">${isLunas ? '*** LUNAS ***' : '*** BELUM LUNAS ***'}</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="text-center" style="font-size:9px; margin-top:4px;">
+    Terima kasih atas pesanan Anda!<br>
+    Simpan struk ini sebagai bukti resmi.
+  </div>
+
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.focus();
+        window.print();
+      }, 350);
+    };
+  </script>
+</body>
+</html>`;
+
+  const printWin = window.open('', '_blank', 'width=450,height=600');
+  if (!printWin) {
+    alert('Pop-up diblokir oleh browser! Silakan izinkan pop-up untuk mencetak struk.');
+    return;
+  }
+  printWin.document.open();
+  printWin.document.write(printHtml);
+  printWin.document.close();
+
+  setTimeout(() => {
+    try {
+      printWin.focus();
+      printWin.print();
+    } catch (e) {}
+  }, 500);
+}
+
+// Wrapper cetak struk thermal untuk pesanan tersimpan
+async function printThermalNotaPesanan(id) {
+  const p = await db.pesanan.get(id);
+  if (!p) {
+    alert('Data pesanan tidak ditemukan!');
+    return;
+  }
+  await printThermalReceiptObject(p);
 }
 
 // === FUNGSI PERIKSA QR CODE VERIFIKASI STANDALONE DARI URL ===

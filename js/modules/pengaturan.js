@@ -147,7 +147,25 @@ async function renderPengaturanModule() {
           </div>
         </div>
 
-        <!-- Card 3 (Tambahan Opsional): Google Drive Backup -->
+        <!-- Card 3 (Zona Bahaya): Reset / Kosongkan Database Transaksi -->
+        <div class="card" style="border: 1px solid rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.04); margin-bottom:0;">
+          <div class="card-header">
+            <div class="card-title" style="color: #ef4444; display: flex; align-items: center; gap: 0.5rem;">
+              <span>⚠️ Zona Bahaya: Reset Database Transaksi</span>
+            </div>
+          </div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem; line-height:1.4;">
+            Fitur ini digunakan jika Anda ingin mengosongkan seluruh riwayat <b>Pesanan & Buku Kas Keuangan</b> (misalnya untuk memulai pembukuan baru). <b>Profil Toko & PIN Cloud tetap aman.</b><br>
+            <span style="color:#ef4444; font-weight:600;">🛡️ Sistem akan otomatis mengunduh file backup .json ke komputer Anda sebelum data dihapus.</span>
+          </p>
+          <div>
+            <button class="btn btn-danger btn-sm" style="background:#dc2626; border-color:#b91c1c;" onclick="handleResetDatabaseTransaksi()">
+              🗑️ Reset / Kosongkan Seluruh Data Transaksi
+            </button>
+          </div>
+        </div>
+
+        <!-- Card 4 (Tambahan Opsional): Google Drive Backup -->
         <details style="font-size:0.85rem; color:var(--text-muted); cursor:pointer;" class="card">
           <summary style="font-weight:600; color:var(--text-muted);">☁️ Opsi Cadangan: Google Drive Auto-Sync (Opsional)</summary>
           <div style="margin-top:1rem;">
@@ -205,6 +223,37 @@ async function savePengaturanForm(e) {
 
   alert('✅ Pengaturan profil toko berhasil disimpan!');
   if (typeof loadHeaderStoreProfile === 'function') loadHeaderStoreProfile();
+  if (typeof pushRealtimeChange === 'function') pushRealtimeChange('full_sync');
+}
+
+// Handler Reset Database Transaksi Aman (dengan Auto-Backup)
+async function handleResetDatabaseTransaksi() {
+  const pesananCount = await db.pesanan.count();
+  const keuanganCount = await db.keuangan.count();
+
+  const confirmMsg = `⚠️ PERINGATAN KESELAMATAN!\n\n` +
+    `Anda akan menghapus:\n` +
+    `• ${pesananCount} Data Pesanan\n` +
+    `• ${keuanganCount} Catatan Buku Kas Keuangan\n\n` +
+    `Sistem akan secara OTOMATIS mengunduh file backup (.json) ke komputer/perangkat Anda terlebih dahulu agar data Anda selalu bisa dikembalikan.\n\n` +
+    `Apakah Anda yakin ingin melanjutkan?`;
+
+  if (!confirm(confirmMsg)) return;
+
+  const typeConfirm = prompt(`Ketik kata "RESET" (huruf besar) untuk mengonfirmasi pengosongan database:`);
+  if (typeConfirm !== 'RESET') {
+    alert('Konfirmasi dibatalkan. Data Anda tetap aman dan tidak ada yang dihapus.');
+    return;
+  }
+
+  try {
+    await dbResetSemuaDataTransaksi();
+    alert('✅ File backup otomatis telah diunduh dan seluruh data transaksi berhasil dikosongkan.');
+    window.location.reload();
+  } catch (err) {
+    console.error('Gagal me-reset database:', err);
+    alert(`⚠️ Terjadi kesalahan saat me-reset database: ${err.message}`);
+  }
 }
 
 // Backup & Restore Lokal File .json

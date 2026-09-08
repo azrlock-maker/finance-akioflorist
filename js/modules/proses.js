@@ -87,7 +87,8 @@ async function renderProsesModule() {
                   <div class="kanban-card">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                       <b style="cursor:pointer; color:var(--text-main);" 
-                         onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+                         title="Kirim Pesan WhatsApp"
+                         onclick="${(colName === 'Papan Di Antar' || colName === 'Siap Diantar') ? `handleWaAntarClick(event, ${p.id})` : `handleWaPesananClick(event, ${p.id})`}">
                         ${displayNama} <span style="color:#25D366; font-size:0.85rem;">💬</span>
                       </b>
                       <small style="color:var(--text-muted);">${displayNota}</small>

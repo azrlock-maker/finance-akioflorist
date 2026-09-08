@@ -135,6 +135,32 @@ function attachRealtimeListeners() {
         }
       }
 
+      // 3. Update & Sync Profil Toko dari Cloud (Tanpa Timpa Logo Berat)
+      if (cloudData.profil) {
+        const localCfg = await db.pengaturan.get(1) || { id: 1 };
+        const cp = cloudData.profil;
+        if (
+          localCfg.nama_toko !== cp.nama_toko ||
+          localCfg.tagline !== cp.tagline ||
+          localCfg.alamat !== cp.alamat ||
+          localCfg.telepon !== cp.telepon ||
+          localCfg.website_url !== cp.website_url
+        ) {
+          await db.pengaturan.put({
+            ...localCfg,
+            nama_toko: cp.nama_toko || localCfg.nama_toko,
+            tagline: cp.tagline !== undefined ? cp.tagline : (localCfg.tagline || ''),
+            alamat: cp.alamat !== undefined ? cp.alamat : (localCfg.alamat || ''),
+            telepon: cp.telepon !== undefined ? cp.telepon : (localCfg.telepon || ''),
+            website_url: cp.website_url !== undefined ? cp.website_url : (localCfg.website_url || '')
+          });
+          hasChanges = true;
+          if (typeof loadHeaderStoreProfile === 'function') {
+            loadHeaderStoreProfile();
+          }
+        }
+      }
+
       if (hasChanges) {
         const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         realtimeState.lastSyncTime = now;
@@ -182,9 +208,20 @@ async function pushRealtimeChange(type, payload, immediate = false) {
       pesanan.forEach(p => { if (p.id) pesananMap[p.id] = p; });
       keuangan.forEach(k => { if (k.id) keuanganMap[k.id] = k; });
 
+      // Sinkronisasi profil toko teks ringan (menjaga kuota storage & bandwidth)
+      const profilData = await db.pengaturan.get(1) || {};
+      const profilClean = {
+        nama_toko: profilData.nama_toko || 'AKIO FLORIST',
+        tagline: profilData.tagline || '',
+        alamat: profilData.alamat || '',
+        telepon: profilData.telepon || '',
+        website_url: profilData.website_url || ''
+      };
+
       await storeRef.set({
         pesanan: pesananMap,
         keuangan: keuanganMap,
+        profil: profilClean,
         last_updated: Date.now()
       });
 

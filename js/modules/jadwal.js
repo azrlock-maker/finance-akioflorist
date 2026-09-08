@@ -88,11 +88,12 @@ async function renderJadwalModule() {
                     <td><b>${displayNota}</b></td>
                     <td>
                       <div style="cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem;"
-                           onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+                           title="Kirim Kabar Antar & Foto Dokumentasi via WhatsApp"
+                           onclick="handleWaAntarClick(event, ${p.id})">
                         <b>${displayNama}</b>
                         <span style="color:#25D366;">💬</span>
                       </div>
-                      ${p.no_wa ? `<br><small style="color:#25D366; font-weight:600; cursor:pointer;" onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">📱 ${typeof escapeHtml === 'function' ? escapeHtml(p.no_wa) : p.no_wa}</small>` : ''}
+                      ${p.no_wa ? `<br><small style="color:#25D366; font-weight:600; cursor:pointer;" title="Kirim Kabar Antar & Foto Dokumentasi" onclick="handleWaAntarClick(event, ${p.id})">📱 ${typeof escapeHtml === 'function' ? escapeHtml(p.no_wa) : p.no_wa}</small>` : ''}
                     </td>
                     <td>
                       <span class="badge badge-proses">${displayJenis}</span><br>
@@ -142,13 +143,15 @@ async function renderJadwalModule() {
                 </div>
                 <div class="mobile-card-body">
                   <div class="customer-name" style="cursor:pointer; display:inline-flex; align-items:center; gap:0.35rem;"
-                       onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+                       title="Kirim Kabar Antar & Foto Dokumentasi via WhatsApp"
+                       onclick="handleWaAntarClick(event, ${p.id})">
                     <span>${displayNama}</span>
                     <span style="color:#25D366; font-size:1.05rem;">💬</span>
                   </div>
                   ${p.no_wa ? `
                     <div style="font-size:0.82rem; color:#25D366; font-weight:600; cursor:pointer;" 
-                         onclick="handleWaClick(event, '${safeWa}', '${safeNama}', '${safeNota}', ${p.id})">
+                         title="Kirim Kabar Antar & Foto Dokumentasi via WhatsApp"
+                         onclick="handleWaAntarClick(event, ${p.id})">
                       📱 ${typeof escapeHtml === 'function' ? escapeHtml(p.no_wa) : p.no_wa}
                     </div>
                   ` : ''}
