@@ -100,12 +100,9 @@ async function renderJadwalModule() {
                       <small style="color:var(--text-muted); font-style:italic;">"${displayUcapan}"</small>
                     </td>
                     <td>
+                      📍 ${displayLokasi}
                       ${(() => {
-                        const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
-                        return `
-                          📍 ${displayLokasi}
-                          ${gmapsUrl ? `<br><a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; font-size:0.8rem; font-weight:600; text-decoration:none;">🗺️ Buka Google Maps</a>` : ''}
-                        `;
+                        return typeof getGmapsBadgeHtml === 'function' ? `<br>${getGmapsBadgeHtml(p, true)}` : '';
                       })()}
                     </td>
                     <td>
@@ -133,7 +130,6 @@ async function renderJadwalModule() {
               const displayUcapan = typeof escapeHtml === 'function' ? escapeHtml(p.ucapan || '-') : (p.ucapan || '-');
               const displayLokasi = typeof escapeHtml === 'function' ? escapeHtml(p.lokasi_pengantaran || '-') : (p.lokasi_pengantaran || '-');
               const displayNota = typeof escapeHtml === 'function' ? escapeHtml(p.no_nota || '-') : (p.no_nota || '-');
-              const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
 
               return `
               <div class="mobile-card-item">
@@ -155,9 +151,9 @@ async function renderJadwalModule() {
                       📱 ${typeof escapeHtml === 'function' ? escapeHtml(p.no_wa) : p.no_wa}
                     </div>
                   ` : ''}
-                  <div style="font-size:0.85rem; color:#60a5fa; font-weight:600; margin-top:0.25rem; display:flex; justify-content:space-between; align-items:center;">
+                  <div style="font-size:0.85rem; color:var(--text-main); font-weight:600; margin-top:0.25rem; display:flex; justify-content:space-between; align-items:center;">
                     <span>📍 ${displayLokasi}</span>
-                    ${gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; font-size:0.8rem; font-weight:600; text-decoration:none;">🗺️ Maps</a>` : ''}
+                    ${typeof getGmapsBadgeHtml === 'function' ? getGmapsBadgeHtml(p, true) : ''}
                   </div>
                   <div class="ucapan-quote">"${displayUcapan}"</div>
                 </div>

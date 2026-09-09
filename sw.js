@@ -1,4 +1,4 @@
-const CACHE_NAME = 'papan-bunga-finance-v37';
+const CACHE_NAME = 'papan-bunga-finance-v38';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

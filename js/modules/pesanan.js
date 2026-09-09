@@ -45,10 +45,7 @@ function getPesananTableRowsHtml(filtered, formatRp) {
           `}
           <small style="color:var(--text-muted);">
             📍 ${displayLokasi}
-            ${(() => {
-              const gmapsUrl = typeof getGmapsUrl === 'function' ? getGmapsUrl(p) : '';
-              return gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; text-decoration:none; font-weight:600; margin-left:0.25rem;">[📍 Maps]</a>` : '';
-            })()}
+            ${typeof getGmapsBadgeHtml === 'function' ? getGmapsBadgeHtml(p) : ''}
           </small>
         </td>
         <td>
@@ -119,7 +116,7 @@ function getPesananMobileCardsHtml(filtered, formatRp) {
           `}
           <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem; display:flex; justify-content:space-between; align-items:center;">
             <span>📍 ${displayLokasi}</span>
-            ${gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; font-weight:600; text-decoration:none;">📍 Maps</a>` : ''}
+            ${typeof getGmapsBadgeHtml === 'function' ? getGmapsBadgeHtml(p, true) : ''}
           </div>
           <div style="margin-top:0.25rem; display:flex; gap:0.4rem; flex-wrap:wrap;">
             <span class="badge badge-proses">${displayJenis}</span>

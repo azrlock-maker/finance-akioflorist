@@ -28,14 +28,27 @@ db.version(3).stores({
   pesanan: '++id, no_nota, tanggal, tanggal_antar, tgl_status_antar, nama_pemesan, no_wa, jenis_papan, status_lunas, status_proses, gps_lat, gps_lng'
 });
 
-// Global Helper HTML5 GPS Geolocation
-function captureCurrentGpsLocation() {
+// Global Helper HTML5 GPS Geolocation dengan Konfirmasi Lokasi Riil
+function captureCurrentGpsLocation(promptConfirmation = true) {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
       console.warn('[GPS] Geolocation tidak didukung browser ini.');
       resolve(null);
       return;
     }
+
+    if (promptConfirmation) {
+      const isAtLocation = confirm(
+        '📍 Rekam Titik Lokasi Pemasangan (GPS)?\n\n' +
+        '• Tekan "OK" jika Anda sedang berada di LOKASI ACARA untuk merekam koordinat GPS presisi.\n' +
+        '• Tekan "Batal" jika Anda sedang di toko / tidak di lokasi (sistem akan otomatis tetap menggunakan alamat teks pemesan).'
+      );
+      if (!isAtLocation) {
+        resolve(null);
+        return;
+      }
+    }
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         resolve({
@@ -46,6 +59,7 @@ function captureCurrentGpsLocation() {
       },
       (err) => {
         console.warn('[GPS] Gagal membaca GPS atau akses ditolak:', err.message || err);
+        alert('ℹ️ Izin GPS tidak aktif / ditolak. Lokasi pengantaran otomatis menggunakan alamat teks yang diinput.');
         resolve(null);
       },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
@@ -63,6 +77,19 @@ function getGmapsUrl(p) {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.lokasi_pengantaran.trim())}`;
   }
   return '';
+}
+
+// Global Helper Google Maps Badge HTML (Membedakan GPS Riil vs Alamat Teks)
+function getGmapsBadgeHtml(p, isCompact = false) {
+  if (!p) return '';
+  const url = getGmapsUrl(p);
+  if (!url) return '';
+  const hasGps = !!(p.gps_lat && p.gps_lng);
+  const color = hasGps ? '#10b981' : '#60a5fa';
+  const label = hasGps ? (isCompact ? '📍 GPS Riil' : '[📍 GPS Riil]') : (isCompact ? '📍 Maps' : '[📍 Maps]');
+  const title = hasGps ? 'Titik koordinat GPS riil saat pemasangan di lokasi acara' : 'Pencarian alamat pengantaran di Google Maps';
+
+  return `<a href="${url}" target="_blank" style="color:${color}; text-decoration:none; font-weight:600; ${isCompact ? '' : 'margin-left:0.25rem;'}" title="${title}">${label}</a>`;
 }
 
 // Global Helper WhatsApp dengan Template Pesan Otomatis

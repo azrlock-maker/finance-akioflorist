@@ -95,7 +95,7 @@ async function renderProsesModule() {
                     </div>
                     <div style="font-size:0.8rem; color:var(--info); margin:0.3rem 0; display:flex; justify-content:space-between; align-items:center;">
                       <span>${displayJenis} | Antar: ${displayTanggal}</span>
-                      ${gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" style="color:#60a5fa; font-weight:600; font-size:0.75rem; text-decoration:none; margin-left:0.5rem;" title="Lihat Lokasi di Google Maps">📍 Maps</a>` : ''}
+                      ${typeof getGmapsBadgeHtml === 'function' ? getGmapsBadgeHtml(p, true) : ''}
                     </div>
                     ${p.lokasi_pengantaran ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.3rem;">📍 ${escapeHtml(p.lokasi_pengantaran)}</div>` : ''}
                     <div style="font-size:0.78rem; color:var(--text-muted); font-style:italic; margin-bottom:0.6rem;">
