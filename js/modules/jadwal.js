@@ -14,6 +14,14 @@ async function renderJadwalModule() {
   // Filter HANYA pesanan yang BELUM diantar (status_proses !== 'Papan Di Antar')
   const pendingPesanan = allPesanan.filter(p => p.status_proses !== 'Papan Di Antar');
 
+  // Urutkan pesanan pending berdasarkan tanggal pengantaran yang PALING MENDEKATI HARI INI
+  pendingPesanan.sort((a, b) => {
+    const tglA = String(a.tanggal_antar || a.tanggal || '9999-99-99');
+    const tglB = String(b.tanggal_antar || b.tanggal || '9999-99-99');
+    if (tglA !== tglB) return tglA.localeCompare(tglB);
+    return (a.id || 0) - (b.id || 0);
+  });
+
   // Grouping pesanan by tanggal_antar
   const grouped = {};
   pendingPesanan.forEach(p => {
@@ -22,7 +30,12 @@ async function renderJadwalModule() {
     grouped[tgl].push(p);
   });
 
-  const sortedDates = Object.keys(grouped).sort().reverse();
+  // Urutkan tanggal secara kronologis menaik (tanggal terdekat / hari ini / lampau paling atas)
+  const sortedDates = Object.keys(grouped).sort((a, b) => {
+    if (a === 'Tanpa Tanggal') return 1;
+    if (b === 'Tanpa Tanggal') return -1;
+    return a.localeCompare(b);
+  });
 
   let html = `
     <div class="card">
@@ -30,7 +43,7 @@ async function renderJadwalModule() {
         <div>
           <div class="card-title">📅 Jadwal Pengantaran Papan Bunga (Belum Diantar)</div>
           <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">
-            Tandai centang pada papan yang ingin diubah statusnya sekaligus menjadi <b>Papan Di Antar</b>.
+            Diurutkan berdasarkan <b>tanggal pengantaran terdekat</b>. Tandai centang pada papan yang ingin diubah statusnya sekaligus menjadi <b>Papan Di Antar</b>.
           </p>
         </div>
 
@@ -43,15 +56,21 @@ async function renderJadwalModule() {
         ` : ''}
       </div>
 
-      ${sortedDates.length > 0 ? sortedDates.map(tgl => `
+      ${sortedDates.length > 0 ? sortedDates.map(tgl => {
+        const isToday = (tgl === todayStr);
+        const isPast = (tgl < todayStr && tgl !== 'Tanpa Tanggal');
+        const badgeColor = isToday ? '#f59e0b' : (isPast ? '#ef4444' : '#3b82f6');
+        const badgeText = isToday ? '🚨 (HARI INI!)' : (isPast ? '⚠️ (TERLAMBAT / TUNGGAKAN)' : '🗓️');
+
+        return `
         <div style="margin-bottom:1.5rem;">
-          <div style="padding:0.6rem 0.85rem; background:rgba(255,255,255,0.05); border-left:4px solid ${tgl === todayStr ? '#f59e0b' : '#3b82f6'}; border-radius:6px; font-weight:700; margin-bottom:0.75rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
-            <span>🗓️ Tanggal Antar: ${tgl} ${tgl === todayStr ? '⚠️ (HARI INI!)' : ''}</span>
+          <div style="padding:0.6rem 0.85rem; background:rgba(255,255,255,0.05); border-left:4px solid ${badgeColor}; border-radius:6px; font-weight:700; margin-bottom:0.75rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <span>🗓️ Tanggal Antar: ${tgl} <span style="color:${badgeColor}; font-size:0.85rem;">${badgeText}</span></span>
             <div style="display:flex; align-items:center; gap:0.75rem;">
-              <label style="font-size:0.8rem; cursor:pointer; color:var(--text-muted);">
-                <input type="checkbox" onchange="toggleSelectAllJadwalGroup('${tgl}', this.checked)" style="transform:scale(1.1); margin-right:4px;"> Pilih Semua Tgl Ini
+              <label style="font-size:0.8rem; cursor:pointer; color:var(--text-muted); display:inline-flex; align-items:center; gap:0.35rem;">
+                <input type="checkbox" onchange="toggleSelectAllJadwalGroup('${tgl}', this.checked)" style="transform:scale(1.1);"> Pilih Semua
               </label>
-              <span class="badge badge-proses">${grouped[tgl].length} Papan Belum Antar</span>
+              <span class="badge badge-proses">${grouped[tgl].length} Papan</span>
             </div>
           </div>
 
@@ -119,7 +138,7 @@ async function renderJadwalModule() {
             </table>
           </div>
 
-          <!-- Tampilan Native Mobile Feed Cards (Khusus HP Armada) -->
+          <!-- Tampilan Native Mobile Feed Cards (Khusus HP Armada, Lengkap dengan Checkbox) -->
           <div class="mobile-card-list">
             ${grouped[tgl].map(p => {
               const safeNama = typeof escapeAttr === 'function' ? escapeAttr(p.nama_pemesan) : (p.nama_pemesan || '').replace(/'/g, "\\'");
@@ -134,7 +153,11 @@ async function renderJadwalModule() {
               return `
               <div class="mobile-card-item">
                 <div class="mobile-card-header">
-                  <span class="nota-no">📄 ${displayNota}</span>
+                  <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <input type="checkbox" class="jadwal-check-item" data-group="${tgl}" value="${p.id}" 
+                           onchange="onJadwalCheckChange(this)" style="width:19px; height:19px; cursor:pointer;">
+                    <span class="nota-no">📄 ${displayNota}</span>
+                  </div>
                   <span class="badge badge-proses">${p.status_proses || 'Data Masuk'}</span>
                 </div>
                 <div class="mobile-card-body">
@@ -164,7 +187,7 @@ async function renderJadwalModule() {
             `}).join('')}
           </div>
         </div>
-      `).join('') : `<div style="text-align:center; color:var(--success); padding:3rem 0; font-weight:700;">🎉 Semua pesanan pengantaran telah selesai diantar!</div>`}
+      `}).join('') : `<div style="text-align:center; color:var(--success); padding:3rem 0; font-weight:700;">🎉 Semua pesanan pengantaran telah selesai diantar!</div>`}
     </div>
   `;
 

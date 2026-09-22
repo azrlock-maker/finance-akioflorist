@@ -274,12 +274,13 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Bottom Navigation Bar (Mobile) - Scrollable to fit all 7 menus */
+/* Bottom Navigation Bar (Mobile) - Scrollable to fit all 8 menus, No Scrollbar */
 .bottom-nav {
   display: none;
-  height: var(--bottom-nav-height);
-  background: rgba(30, 41, 59, 0.96);
-  backdrop-filter: blur(16px);
+  height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border-color);
   position: fixed;
   bottom: 0;
@@ -290,7 +291,13 @@ body {
   -webkit-overflow-scrolling: touch;
   justify-content: flex-start;
   align-items: center;
-  padding: 0 0.25rem;
+  padding: 0 0.25rem env(safe-area-inset-bottom, 0px);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.bottom-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .bottom-nav-item {
@@ -307,6 +314,11 @@ body {
   height: 100%;
   padding: 0 0.2rem;
   white-space: nowrap;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.bottom-nav-item:active {
+  transform: scale(0.92);
 }
 
 .bottom-nav-item .icon {
@@ -316,6 +328,26 @@ body {
 .bottom-nav-item.active {
   color: var(--accent-primary);
   font-weight: 700;
+}
+
+/* Sidebar Backdrop Overlay (Mobile) */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 9998;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.sidebar-overlay.active {
+  display: block;
+  opacity: 1;
 }
 
 /* Responsive Layout */
@@ -345,5 +377,31 @@ body {
 
   .content-body {
     padding-bottom: calc(var(--bottom-nav-height) + 1.5rem);
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --header-height: 58px;
+  }
+
+  .top-header {
+    padding: 0 0.85rem;
+  }
+
+  .header-title h2 {
+    font-size: 1.05rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+  }
+
+  .content-body {
+    padding: 0.75rem 0.65rem calc(var(--bottom-nav-height) + 2rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .desktop-only-btn {
+    display: none !important;
   }
 }

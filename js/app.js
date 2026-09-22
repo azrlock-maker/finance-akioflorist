@@ -116,16 +116,35 @@ async function switchView(viewName) {
     }
   }
 
-  // Close mobile sidebar drawer on click
+  // Tanda view aktif pada body & kontrol tombol FAB (+) HP (HANYA MUNCUL DI TAB PESANAN)
+  document.body.setAttribute('data-current-view', viewName);
+  const mobileFab = document.getElementById('mobile-fab') || document.querySelector('.mobile-fab');
+  if (mobileFab) {
+    if (viewName === 'pesanan') {
+      mobileFab.classList.add('visible');
+    } else {
+      mobileFab.classList.remove('visible');
+    }
+  }
+
+  // Close mobile sidebar drawer and backdrop overlay on menu click
   const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
   if (sidebar && sidebar.classList.contains('mobile-active')) {
     sidebar.classList.remove('mobile-active');
+  }
+  if (overlay && overlay.classList.contains('active')) {
+    overlay.classList.remove('active');
   }
 }
 
 function toggleMobileSidebar() {
   const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
   if (sidebar) {
-    sidebar.classList.toggle('mobile-active');
+    const isActive = sidebar.classList.toggle('mobile-active');
+    if (overlay) {
+      overlay.classList.toggle('active', isActive);
+    }
   }
 }
