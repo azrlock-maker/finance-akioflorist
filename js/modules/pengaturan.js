@@ -257,24 +257,30 @@ async function handleFinanceKeyChangePassword() {
   if (!confirm('Simpan kata sandi baru di tempat aman. Kata sandi lama tidak bisa dipakai lagi. Lanjutkan?')) return;
   try {
     await window.FinanceKey.changePassword(oldPass, newPass);
-    alert('✅ Kata sandi kunci berhasil diganti.');
+    const text = await window.FinanceKey.exportEncrypted();
+    downloadFinanceKeyFile(text, 'akio-finance-signing-key-barul.json');
+    alert('✅ Kata sandi kunci berhasil diganti. Berkas kunci baru sudah diunduh — timpa web/data/signing-key.enc.json dengan berkas tersebut agar kata sandi baru berlaku juga di komputer/flashdisk.');
     updateFinanceKeyStatus();
   } catch (e) {
     alert('⚠️ Gagal mengganti kata sandi: ' + e.message);
   }
 }
 
+function downloadFinanceKeyFile(text, filename) {
+  const blob = new Blob([text], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 async function handleFinanceKeyExport() {
   try {
     const text = await window.FinanceKey.exportEncrypted();
-    const blob = new Blob([text], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'akio-finance-signing-key-secure.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    downloadFinanceKeyFile(text, 'akio-finance-signing-key-secure.json');
     alert('Kunci terenkripsi diunduh. Simpan di flashdisk, dan simpan kata sandinya di tempat terpisah.');
   } catch (e) {
     alert('⚠️ Gagal mengekspor kunci: ' + e.message);

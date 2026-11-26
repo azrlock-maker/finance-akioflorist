@@ -26,6 +26,7 @@ PIN **tidak** ditanam di kode dan **tidak** ikut ke GitHub — PIN hanya tersimp
 
 - Nota A4 dan nota hutang memakai tanda tangan **ECDSA P-256 / SHA-256**.
 - Kunci privat **hanya ada di komputer toko**, tersimpan terenkripsi di `web/data/signing-key.enc.json` (PBKDF2-SHA256 + AES-GCM). Kata sandinya harus diisi tiap kali aplikasi dibuka lewat menu **Pengaturan & Sync → Buka kunci**.
+- Setelah **Ganti kata sandi**, aplikasi mengunduh berkas kunci baru. Timpa `web/data/signing-key.enc.json` dengan berkas itu supaya kata sandi baru berlaku juga saat browser dibuka ulang atau dipakai komputer lain.
 - Hanya **kunci publik** yang disimpan di `js/verifikasi-kunci.js` dan ikut ke GitHub. Kode lama yang menanamkan secret HMAC di `js/modules/pesanan.js` sudah dihapus.
 - QR selalu mengarah ke halaman verifikasi resmi: <https://azrlock-maker.github.io/finance-akioflorist/>. Halaman itu **benar-benar memverifikasi** tanda tangan sebelum menampilkan status "SAH & RESMI".
 - QR lama bertanda 12 hex HMAC ditampilkan sebagai **FORMAT LAMA / tidak terverifikasi**, bukan "asli".
@@ -33,4 +34,4 @@ PIN **tidak** ditanam di kode dan **tidak** ikut ke GitHub — PIN hanya tersimp
 
 ## Catatan deploy
 
-`index.html`, `manifest.json`, aset CSS/JS, dan `sw.js` memakai cache buster `?v=42`. Saat mengubah file JS/CSS, naikkan nomor versi tersebut **dan** `CACHE_NAME` di `sw.js` agar browser tidak menyajikan versi lama.
+`index.html`, `manifest.json`, aset CSS/JS, dan `sw.js` memakai cache buster `?v=43`. Saat mengubah file JS/CSS, naikkan nomor versi tersebut **dan** `CACHE_NAME` di `sw.js` agar browser tidak menyajikan versi lama.
