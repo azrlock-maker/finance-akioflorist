@@ -130,6 +130,33 @@ async function renderPengaturanModule() {
           </details>
         </div>
 
+        <!-- Card Kunci Tanda Tangan Nota (Anti-Palsu) -->
+        <div class="card" style="margin-bottom:0; border:1px solid rgba(52,211,153,0.35);">
+          <div class="card-header">
+            <div class="card-title">🛡️ Kunci Tanda Tangan Nota (Anti-Palsu)</div>
+          </div>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.85rem; line-height:1.45;">
+            Kunci privat <b>hanya ada di komputer toko</b>, dienkripsi dengan kata sandi (PBKDF2 + AES-GCM).
+            Kunci yang dikirim ke GitHub hanyalah kunci publik untuk memeriksa QR.
+            Setiap kali aplikasi dibuka, isi kata sandi lalu klik <b>Buka kunci</b> sebelum mencetak nota.
+          </p>
+          <div id="finance-key-status" style="font-size:0.82rem; margin-bottom:0.85rem; padding:0.65rem 0.75rem; border-radius:8px; background:rgba(148,163,184,0.12);">
+            Memeriksa kunci…
+          </div>
+          <div class="form-group">
+            <label class="form-label">Kata sandi kunci nota</label>
+            <input type="password" id="finance-key-pass" class="form-control" autocomplete="current-password" placeholder="••••••••••••••••••••">
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="handleFinanceKeyUnlock()">🔓 Buka kunci</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="handleFinanceKeyChangePassword()">🔑 Ganti kata sandi</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="handleFinanceKeyExport()">📥 Ekspor kunci terenkripsi</button>
+          </div>
+          <p style="font-size:0.72rem; color:var(--text-muted); margin-top:0.75rem; line-height:1.4;">
+            Kata sandi tidak disimpan permanen (hanya selama tab ini terbuka). Kalau hilang, kunci tidak bisa dibuka dan nota harus dicetak ulang dengan kunci baru.
+          </p>
+        </div>
+
         <!-- Card 2 (Pengaman): Backup / Restore File Lokal (.json) -->
         <div class="card" style="margin-bottom:0;">
           <div class="card-header">
@@ -181,6 +208,77 @@ async function renderPengaturanModule() {
   `;
 
   container.innerHTML = html;
+  updateFinanceKeyStatus();
+}
+
+// === Kunci tanda tangan nota finance ===
+async function updateFinanceKeyStatus() {
+  const el = document.getElementById('finance-key-status');
+  if (!el || !window.FinanceKey) return;
+  try {
+    const s = await window.FinanceKey.status();
+    if (!s.isLocal) {
+      el.style.color = '#fbbf24';
+      el.textContent = 'Halaman publik: hanya bisa MEMERIKSA QR. Kunci privat tidak tersedia di sini — buka aplikasi di komputer toko (http://localhost:8000) untuk mencetak nota.';
+    } else if (!s.hasBox) {
+      el.style.color = '#f87171';
+      el.textContent = 'Berkas kunci tidak ditemukan di folder web/data/signing-key.enc.json pada komputer toko.';
+    } else if (s.ready) {
+      el.style.color = '#34d399';
+      el.textContent = `Kunci terbuka dan siap dipakai · sidik ${s.fingerprint}`;
+    } else {
+      el.style.color = '#fbbf24';
+      el.textContent = `Kunci tersimpan terenkripsi · sidik ${s.fingerprint} · masukkan kata sandi lalu klik Buka kunci.`;
+    }
+  } catch (e) {
+    el.style.color = '#f87171';
+    el.textContent = 'Gagal membaca status kunci: ' + e.message;
+  }
+}
+
+async function handleFinanceKeyUnlock() {
+  const pass = (document.getElementById('finance-key-pass') || {}).value || '';
+  try {
+    await window.FinanceKey.unlock(pass);
+    const input = document.getElementById('finance-key-pass');
+    if (input) input.value = '';
+    alert('✅ Kunci nota terbuka. Anda sudah bisa mencetak nota dengan QR yang valid.');
+    updateFinanceKeyStatus();
+  } catch (e) {
+    alert('⚠️ Gagal membuka kunci: ' + e.message);
+  }
+}
+
+async function handleFinanceKeyChangePassword() {
+  const oldPass = prompt('Kata sandi kunci saat ini:');
+  if (!oldPass) return;
+  const newPass = prompt('Kata sandi baru (minimal 10 karakter):');
+  if (!newPass) return;
+  if (!confirm('Simpan kata sandi baru di tempat aman. Kata sandi lama tidak bisa dipakai lagi. Lanjutkan?')) return;
+  try {
+    await window.FinanceKey.changePassword(oldPass, newPass);
+    alert('✅ Kata sandi kunci berhasil diganti.');
+    updateFinanceKeyStatus();
+  } catch (e) {
+    alert('⚠️ Gagal mengganti kata sandi: ' + e.message);
+  }
+}
+
+async function handleFinanceKeyExport() {
+  try {
+    const text = await window.FinanceKey.exportEncrypted();
+    const blob = new Blob([text], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'akio-finance-signing-key-secure.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    alert('Kunci terenkripsi diunduh. Simpan di flashdisk, dan simpan kata sandinya di tempat terpisah.');
+  } catch (e) {
+    alert('⚠️ Gagal mengekspor kunci: ' + e.message);
+  }
 }
 
 // Upload Handler Gambar Logo Toko

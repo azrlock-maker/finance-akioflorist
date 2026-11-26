@@ -448,31 +448,26 @@ async function handleHapusPesanan(id) {
   }
 }
 
-// === FUNGSI GENERATE DIGITAL HMAC SHA-256 SIGNATURE ===
+// === TANDA TANGAN DIGITAL ECDSA P-256 ===
+// Kunci privat HANYA ada di aplikasi lokal. Kunci publik ada di js/verifikasi-kunci.js.
 async function generateInvoiceDigitalSignature(no_nota, tanggal, nama_pemesan, harga) {
-  const secretKey = "AKIO_FLORIST_No_#1_050517!_RS";
-  const payload = `${no_nota}|${tanggal}|${nama_pemesan}|${harga}`;
+  const cfg = window.AKIO_FINANCE_VERIFY;
+  if (!cfg || !window.FinanceKey) throw new Error('Kunci verifikasi nota belum dimuat');
+  const canon = window.FinanceKey.canonical(no_nota, tanggal, nama_pemesan, harga, cfg.fingerprint);
+  return window.FinanceKey.signCanonical(canon);
+}
 
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(secretKey);
-  const msgData = encoder.encode(payload);
-
-  try {
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-    );
-    const signatureBuffer = await crypto.subtle.sign('HMAC', cryptoKey, msgData);
-    const hashArray = Array.from(new Uint8Array(signatureBuffer));
-    const hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-    return hex.substring(0, 12);
-  } catch (err) {
-    let hash = 0;
-    for (let i = 0; i < payload.length; i++) {
-      hash = (hash << 5) - hash + payload.charCodeAt(i);
-      hash |= 0;
-    }
-    return Math.abs(hash).toString(16).toUpperCase().padStart(12, '0').substring(0, 12);
-  }
+function invoiceVerifyParams(no_nota, tanggal, nama_pemesan, harga, signature) {
+  const cfg = window.AKIO_FINANCE_VERIFY;
+  return new URLSearchParams({
+    v: cfg.format,
+    no: String(no_nota || ''),
+    t: String(tanggal || ''),
+    n: String(nama_pemesan || ''),
+    total: String(harga || 0),
+    k: cfg.fingerprint,
+    s: String(signature || '')
+  });
 }
 
 // === MODAL BUAT NOTA INSTAN (TANPA SIMPAN DATABASE) ===
@@ -585,49 +580,41 @@ async function printInvoiceObject(p) {
 
   const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
 
-  // Calculate HMAC Digital Signature
-  const signature = await generateInvoiceDigitalSignature(p.no_nota, p.tanggal, p.nama_pemesan, p.harga);
-
-  // Generate QR Code URL
-  let targetUrl = config.website_url ? config.website_url.trim() : (window.location.origin + window.location.pathname);
-  if (targetUrl && !targetUrl.startsWith('http')) {
-    targetUrl = 'https://' + targetUrl;
+  // Tanda tangan ECDSA dengan kunci privat lokal. Gagal → jangan tampilkan "SIGN" palsu.
+  let signature = '';
+  try {
+    signature = await generateInvoiceDigitalSignature(p.no_nota, p.tanggal, p.nama_pemesan, p.harga);
+  } catch (err) {
+    console.warn('[QR Code] Tanda tangan gagal:', err);
+    alert('Kunci nota belum terbuka. Buka menu Pengaturan → isi kata sandi → Buka kunci, lalu cetak ulang nota.');
   }
 
-  const qrUrlParams = new URLSearchParams({
-    nota: `${p.no_nota} - ${p.nama_pemesan}`,
-    tgl: p.tanggal,
-    total: p.harga,
-    sign: signature
-  });
+  // QR selalu mengarah ke halaman verifikasi resmi di GitHub Pages.
+  const cfgVerify = window.AKIO_FINANCE_VERIFY;
+  const qrParams = invoiceVerifyParams(p.no_nota, p.tanggal, p.nama_pemesan, p.harga, signature);
+  const qrText = cfgVerify.verifyUrl + '?' + qrParams.toString();
 
-  const qrText = targetUrl.includes('?') ? `${targetUrl}&${qrUrlParams.toString()}` : `${targetUrl}?${qrUrlParams.toString()}`;
-
-  // Build QR Code as base64 Data URL
   let qrDataUrl = '';
-  if (typeof qrcode !== 'undefined') {
+  if (signature && typeof qrcode !== 'undefined') {
     try {
       const qrObj = qrcode(0, 'L');
       qrObj.addData(qrText);
       qrObj.make();
       qrDataUrl = qrObj.createDataURL(4, 2);
-    } catch (qrErr1) {
-      console.warn('[QR Code] Full URL too long, trying shorter data...', qrErr1);
-      try {
-        const shortData = `${p.no_nota}|${signature}`;
-        const qrObj2 = qrcode(0, 'M');
-        qrObj2.addData(shortData);
-        qrObj2.make();
-        qrDataUrl = qrObj2.createDataURL(4, 2);
-      } catch (qrErr2) {
-        console.error('[QR Code] Gagal generate QR Code:', qrErr2);
-      }
+    } catch (qrErr) {
+      console.error('[QR Code] Gagal generate QR Code:', qrErr);
     }
   }
 
   const qrImgTag = qrDataUrl
     ? `<img src="${qrDataUrl}" alt="QR Code Verifikasi" style="width: 110px; height: 110px; border: 1px solid #ddd; padding: 4px; background: #fff;">`
     : `<div style="width:110px; height:110px; border:2px dashed #ccc; display:flex; align-items:center; justify-content:center; font-size:10px; color:#999; text-align:center; background:#fff;">QR Code<br>Tidak Tersedia</div>`;
+  const signLabel = signature
+    ? `SIGN: ${signature.slice(0, 12)}… · ${cfgVerify.fingerprint}`
+    : 'SIGN: BELUM ADA — buka kunci di Pengaturan';
+  const verifyNote = signature
+    ? 'Silakan <i>scan</i> QR Code di samping untuk verifikasi keaslian nota.'
+    : 'QR verifikasi belum tersedia. Minta nota dicetak ulang setelah kunci dibuka.';
 
   const isLunas = p.status_lunas === 1 || (p.harga > 0 && p.dibayar >= p.harga);
   const watermarkCss = isLunas ? `
@@ -721,12 +708,12 @@ async function printInvoiceObject(p) {
           <p>Terima kasih atas pesanan papan bunga Anda!</p>
           <p style="font-size: 11px; margin-top: 15px;">
             * Invoice ini sah dan dicetak secara otomatis (komputerisasi).<br>
-            Silakan <i>scan</i> QR Code di samping untuk verifikasi keaslian nota.
+            ${verifyNote}
           </p>
         </td>
         <td style="width: 30%; text-align: right; vertical-align: top;">
           ${qrImgTag}<br>
-          <span style="font-size: 10px; color: #777; font-family: monospace;">SIGN: ${signature}</span>
+          <span style="font-size: 10px; color: #777; font-family: monospace;">${signLabel}</span>
         </td>
       </tr>
     </table>
@@ -925,87 +912,120 @@ async function printThermalNotaPesanan(id) {
   await printThermalReceiptObject(p);
 }
 
-// === FUNGSI PERIKSA QR CODE VERIFIKASI STANDALONE DARI URL ===
-async function checkUrlInvoiceVerification() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const notaParam = urlParams.get('nota');
-  const signParam = urlParams.get('sign');
-  const totalParam = urlParams.get('total');
-  const tglParam = urlParams.get('tgl');
+// === VERIFIKASI QR NOTA (ECDSA P-256) ===
+function escapeFinanceHtml(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c]);
+}
 
-  if (notaParam && signParam) {
-    // Sembunyikan seluruh tampilan aplikasi utama
-    const appRoot = document.getElementById('app-root');
-    if (appRoot) appRoot.style.display = 'none';
-
-    const config = await db.pengaturan.get(1) || {};
-    const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0);
-
-    // Tampilkan halaman verifikasi resmi berdiri sendiri (Standalone Verification Page)
-    let standalonePage = document.getElementById('standalone-verification-page');
-    if (!standalonePage) {
-      standalonePage = document.createElement('div');
-      standalonePage.id = 'standalone-verification-page';
-      document.body.appendChild(standalonePage);
-    }
-
-    standalonePage.style.display = 'flex';
-    standalonePage.style.cssText = `
-      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-      background: #0f172a; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif;
-      display: flex; align-items: center; justify-content: center; padding: 1.5rem; box-sizing: border-box; z-index: 99999;
-    `;
-
-    standalonePage.innerHTML = `
-      <div style="background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 2rem; max-width: 500px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.5); text-align: center;">
-        <div style="width: 70px; height: 70px; background: rgba(16, 185, 129, 0.15); border: 2px solid #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem; font-size: 2.2rem; color: #34d399;">
-          🛡️
-        </div>
-
-        <h2 style="font-size: 1.3rem; font-weight: 800; color: #34d399; margin-bottom: 0.25rem; letter-spacing: -0.5px;">
-          VERIFIKASI KEASLIAN NOTA
-        </h2>
-        <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 1.5rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
-          ${config.nama_toko || 'AKIO FLORIST'} - OFFICIAL VERIFIED
-        </div>
-
-        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 1.25rem; text-align: left; margin-bottom: 1.5rem; font-size: 0.9rem;">
-          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.6rem; margin-bottom: 0.6rem;">
-            <span style="color: #94a3b8;">Status Keaslian:</span>
-            <span style="color: #34d399; font-weight: 700;">✅ SAH & RESMI</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.6rem; margin-bottom: 0.6rem;">
-            <span style="color: #94a3b8;">Nota & Pemesan:</span>
-            <span style="font-weight: 700; color: #fff;">${notaParam}</span>
-          </div>
-          ${tglParam ? `
-            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.6rem; margin-bottom: 0.6rem;">
-              <span style="color: #94a3b8;">Tanggal:</span>
-              <span style="color: #60a5fa; font-weight: 600;">${tglParam}</span>
-            </div>
-          ` : ''}
-          ${totalParam ? `
-            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.6rem; margin-bottom: 0.6rem;">
-              <span style="color: #94a3b8;">Nilai Pesanan:</span>
-              <span style="color: #fbbf24; font-weight: 700;">${formatRp(parseFloat(totalParam))}</span>
-            </div>
-          ` : ''}
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: #94a3b8;">Digital Signature:</span>
-            <span style="font-family: monospace; font-size: 0.85rem; color: #a855f7; font-weight: 700;">SIGN: ${signParam}</span>
-          </div>
-        </div>
-
-        <p style="font-size: 0.78rem; color: #64748b; margin-bottom: 1.5rem; line-height: 1.4;">
-          * Nota pesanan ini telah terenkripsi secara resmi oleh sistem komputerisasi ${config.nama_toko || 'Akio Florist'}.
-        </p>
-
-        <button class="btn btn-secondary" style="width: 100%; border-radius: 10px;" onclick="openMainAppFromVerification()">
-          🚀 Buka Aplikasi Utama
-        </button>
-      </div>
-    `;
+async function verifyInvoiceSignature(canon, signature) {
+  const cfg = window.AKIO_FINANCE_VERIFY;
+  if (!cfg || !cfg.publicJwk || !window.crypto || !crypto.subtle) return false;
+  try {
+    const key = await crypto.subtle.importKey(
+      'jwk', cfg.publicJwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']
+    );
+    return await crypto.subtle.verify(
+      { name: 'ECDSA', hash: 'SHA-256' }, key,
+      financeFromB64url(signature), new TextEncoder().encode(canon)
+    );
+  } catch (e) {
+    return false;
   }
+}
+
+function financeFromB64url(str) {
+  const s = String(str || '').replace(/-/g, '+').replace(/_/g, '/');
+  const pad = s + '='.repeat((4 - s.length % 4) % 4);
+  const bin = atob(pad);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function checkUrlInvoiceVerification() {
+  const params = new URLSearchParams(window.location.search);
+  const hasLegacy = params.get('nota') && params.get('sign');
+  const hasNew = params.get('v') === 'AKIOFIN1' && params.get('s');
+  if (!hasLegacy && !hasNew) return;
+
+  const cfg = window.AKIO_FINANCE_VERIFY || {};
+  const config = await db.pengaturan.get(1) || {};
+  const formatRp = (val) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(val) || 0);
+
+  const no = params.get('no') || params.get('nota') || '-';
+  const tgl = params.get('t') || params.get('tgl') || '';
+  const nama = params.get('n') || '';
+  const total = params.get('total') || '';
+  const kid = params.get('k') || '';
+  const signature = params.get('s') || params.get('sign') || '';
+
+  let level = 'bad';
+  let statusText = 'TIDAK VALID';
+  let statusDesc = 'Tanda tangan digital tidak cocok. Data nota mungkin sudah diubah.';
+  let detailNama = no;
+
+  if (hasNew && window.FinanceKey && kid === cfg.fingerprint) {
+    const canon = window.FinanceKey.canonical(no, tgl, nama, total, kid);
+    if (await verifyInvoiceSignature(canon, signature)) {
+      level = 'ok';
+      statusText = 'SAH & RESMI';
+      statusDesc = 'Tanda tangan digital cocok dengan kunci resmi toko.';
+      detailNama = `${no}${nama ? ' — ' + nama : ''}`;
+    }
+  } else if (hasLegacy && !hasNew && /^[0-9A-F]{12}$/i.test(signature)) {
+    level = 'warn';
+    statusText = 'FORMAT LAMA';
+    statusDesc = 'Nota ini memakai tanda tangan lama yang kuncinya sudah dipublikasikan. Keaslian tidak dapat dijamin — minta nota cetak ulang.';
+  } else if (hasNew && kid && kid !== cfg.fingerprint) {
+    statusDesc = 'Nota ditandatangani dengan kunci lain, bukan kunci resmi toko ini.';
+  }
+
+  const appRoot = document.getElementById('app-root');
+  if (appRoot) appRoot.style.display = 'none';
+
+  let page = document.getElementById('standalone-verification-page');
+  if (!page) {
+    page = document.createElement('div');
+    page.id = 'standalone-verification-page';
+    document.body.appendChild(page);
+  }
+  page.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:#0f172a;color:#f8fafc;font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;padding:1.5rem;box-sizing:border-box;z-index:99999;overflow:auto;';
+
+  const color = level === 'ok' ? '#34d399' : level === 'warn' ? '#fbbf24' : '#f87171';
+  const icon = level === 'ok' ? '🛡️' : level === 'warn' ? '⚠️' : '✗';
+  const expectedHost = (() => { try { return new URL(cfg.verifyUrl || '').hostname; } catch (e) { return ''; } })();
+  const hostWarning = expectedHost && location.hostname !== expectedHost
+    ? `<div style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.4);color:#fbbf24;border-radius:10px;padding:0.7rem;margin-bottom:1rem;font-size:0.78rem;text-align:left;">⚠️ Halaman ini bukan di domain resmi ${escapeFinanceHtml(expectedHost)}. Pastikan QR mengarah ke situs resmi toko.</div>`
+    : '';
+
+  page.innerHTML = `
+    <div style="background:#1e293b;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:2rem;max-width:500px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,0.5);text-align:center;">
+      ${hostWarning}
+      <div style="width:70px;height:70px;background:rgba(255,255,255,0.06);border:2px solid ${color};border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:2.2rem;">${icon}</div>
+      <h2 style="font-size:1.3rem;font-weight:800;color:${color};margin-bottom:0.25rem;">VERIFIKASI KEASLIAN NOTA</h2>
+      <div style="font-size:0.85rem;color:#94a3b8;margin-bottom:1.5rem;text-transform:uppercase;letter-spacing:1px;font-weight:600;">${escapeFinanceHtml(config.nama_toko || 'AKIO FLORIST')}</div>
+      <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:1.25rem;text-align:left;margin-bottom:1.5rem;font-size:0.9rem;">
+        <div style="display:flex;justify-content:space-between;gap:1rem;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:0.6rem;margin-bottom:0.6rem;">
+          <span style="color:#94a3b8;">Status Keaslian:</span>
+          <span style="color:${color};font-weight:700;text-align:right;">${escapeFinanceHtml(statusText)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:1rem;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:0.6rem;margin-bottom:0.6rem;">
+          <span style="color:#94a3b8;">Nota & Pemesan:</span>
+          <span style="font-weight:700;color:#fff;text-align:right;">${escapeFinanceHtml(detailNama)}</span>
+        </div>
+        ${tgl ? `<div style="display:flex;justify-content:space-between;gap:1rem;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:0.6rem;margin-bottom:0.6rem;"><span style="color:#94a3b8;">Tanggal:</span><span style="color:#60a5fa;font-weight:600;">${escapeFinanceHtml(tgl)}</span></div>` : ''}
+        ${total ? `<div style="display:flex;justify-content:space-between;gap:1rem;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:0.6rem;margin-bottom:0.6rem;"><span style="color:#94a3b8;">Nilai Pesanan:</span><span style="color:#fbbf24;font-weight:700;">${escapeFinanceHtml(formatRp(total))}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;gap:1rem;">
+          <span style="color:#94a3b8;">Digital Signature:</span>
+          <span style="font-family:monospace;font-size:0.8rem;color:#a855f7;font-weight:700;text-align:right;">${escapeFinanceHtml(signature ? signature.slice(0, 16) + '…' : '-')}</span>
+        </div>
+      </div>
+      <p style="font-size:0.8rem;color:#94a3b8;margin-bottom:1.5rem;line-height:1.5;">${escapeFinanceHtml(statusDesc)}</p>
+      <button class="btn btn-secondary" style="width:100%;border-radius:10px;" onclick="openMainAppFromVerification()">🚀 Buka Aplikasi Utama</button>
+    </div>
+  `;
 }
 
 function openMainAppFromVerification() {

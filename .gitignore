@@ -4,6 +4,9 @@ backup*.json
 *.db
 *.db-journal
 
+# Kunci privat nota (terenkripsi) — hanya di komputer toko, bukan di GitHub
+data/signing-key.enc.json
+
 # Aplikasi desktop & lingkungan Python
 .venv/
 __pycache__/

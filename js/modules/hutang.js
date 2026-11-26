@@ -190,39 +190,28 @@ async function printNotaGabungan(namaPelanggan) {
 
   const todayStr = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().split('T')[0];
 
-  // Calculate HMAC Digital Signature
-  const signature = await generateInvoiceDigitalSignature('GABUNGAN', todayStr, targetNama, totalSisaHutang);
+  // Tanda tangan ECDSA dengan kunci privat lokal (bukan secret di kode publik).
+  let signature = '';
+  try {
+    signature = await generateInvoiceDigitalSignature('GABUNGAN', todayStr, targetNama, totalSisaHutang);
+  } catch (err) {
+    console.warn('[QR Code Hutang] Tanda tangan gagal:', err);
+    alert('Kunci nota belum terbuka. Buka Pengaturan → isi kata sandi → Buka kunci, lalu cetak ulang nota.');
+  }
 
-  // Generate QR Code
-  let targetUrl = config.website_url ? config.website_url.trim() : (window.location.origin + window.location.pathname);
-  if (targetUrl && !targetUrl.startsWith('http')) targetUrl = 'https://' + targetUrl;
-
-  const qrUrlParams = new URLSearchParams({
-    nota: `GABUNGAN - ${targetNama}`,
-    tgl: todayStr,
-    total: totalSisaHutang,
-    sign: signature
-  });
-  const qrText = targetUrl.includes('?') ? `${targetUrl}&${qrUrlParams.toString()}` : `${targetUrl}?${qrUrlParams.toString()}`;
+  const cfgVerify = window.AKIO_FINANCE_VERIFY;
+  const qrParams = invoiceVerifyParams('GABUNGAN', todayStr, targetNama, totalSisaHutang, signature);
+  const qrText = cfgVerify.verifyUrl + '?' + qrParams.toString();
 
   let qrDataBase64 = '';
-  if (typeof qrcode !== 'undefined') {
+  if (signature && typeof qrcode !== 'undefined') {
     try {
       const qrObj = qrcode(0, 'L');
       qrObj.addData(qrText);
       qrObj.make();
       qrDataBase64 = qrObj.createDataURL(4, 2);
-    } catch (qrErr1) {
-      console.warn('[QR Code Hutang] Full URL too long, trying shorter data...', qrErr1);
-      try {
-        const shortData = `GABUNGAN|${targetNama}|${signature}`;
-        const qrObj2 = qrcode(0, 'M');
-        qrObj2.addData(shortData);
-        qrObj2.make();
-        qrDataBase64 = qrObj2.createDataURL(4, 2);
-      } catch (qrErr2) {
-        console.error('[QR Code Hutang] Gagal generate QR Code:', qrErr2);
-      }
+    } catch (qrErr) {
+      console.error('[QR Code Hutang] Gagal generate QR Code:', qrErr);
     }
   }
 
@@ -316,12 +305,12 @@ async function printNotaGabungan(namaPelanggan) {
           <p>Silakan lakukan pelunasan tagihan ke pihak <b>${config.nama_toko || 'AKIO FLORIST'}</b>.</p>
           <p style="font-size: 11px; margin-top: 15px;">
             * Rekap Nota Gabungan ini dicetak secara resmi.<br>
-            Silakan <i>scan</i> QR Code di samping untuk verifikasi keaslian tagihan.
+            ${signature ? 'Silakan <i>scan</i> QR Code di samping untuk verifikasi keaslian tagihan.' : 'QR verifikasi belum tersedia. Buka kunci di Pengaturan lalu cetak ulang tagihan.'}
           </p>
         </td>
         <td style="width: 30%; text-align: right; vertical-align: top;">
           ${qrImgTag}
-          <span style="font-size: 10px; color: #777; font-family: monospace;">SIGN: ${signature}</span>
+          <span style="font-size: 10px; color: #777; font-family: monospace;">${signature ? `SIGN: ${signature.slice(0, 12)}… · ${cfgVerify.fingerprint}` : 'SIGN: BELUM ADA'}</span>
         </td>
       </tr>
     </table>
