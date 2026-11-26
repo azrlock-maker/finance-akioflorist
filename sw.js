@@ -1,22 +1,22 @@
-const CACHE_NAME = 'papan-bunga-finance-v38';
+const CACHE_NAME = 'papan-bunga-finance-v41';
 const ASSETS_TO_CACHE = [
   './',
-  './index.html',
-  './manifest.json',
-  './css/style.css',
-  './css/components.css',
-  './js/db.js',
-  './js/gdrive-sync.js',
-  './js/firebase-sync.js',
-  './js/app.js',
-  './js/modules/dashboard.js',
-  './js/modules/pesanan.js',
-  './js/modules/proses.js',
-  './js/modules/keuangan.js',
-  './js/modules/hutang.js',
-  './js/modules/jadwal.js',
-  './js/modules/laporan.js',
-  './js/modules/pengaturan.js',
+  './index.html?v=41',
+  './manifest.json?v=41',
+  './css/style.css?v=41',
+  './css/components.css?v=41',
+  './js/db.js?v=41',
+  './js/gdrive-sync.js?v=41',
+  './js/firebase-sync.js?v=41',
+  './js/app.js?v=41',
+  './js/modules/dashboard.js?v=41',
+  './js/modules/pesanan.js?v=41',
+  './js/modules/proses.js?v=41',
+  './js/modules/keuangan.js?v=41',
+  './js/modules/hutang.js?v=41',
+  './js/modules/jadwal.js?v=41',
+  './js/modules/laporan.js?v=41',
+  './js/modules/pengaturan.js?v=41',
   'https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js'
@@ -60,7 +60,7 @@ self.addEventListener('fetch', (e) => {
       return fetch(e.request).catch(() => {
         const accept = e.request.headers.get('accept');
         if (accept && accept.includes('text/html')) {
-          return caches.match('./index.html');
+          return caches.match('./index.html?v=41');
         }
       });
     })

@@ -103,11 +103,11 @@ async function renderPengaturanModule() {
           <div class="form-group">
             <label class="form-label">PIN Sync Toko (Pasangkan HP & PC)</label>
             <div style="display:flex; gap:0.5rem;">
-              <input type="text" id="input-store-pin" class="form-control" style="font-weight:bold; letter-spacing:1px;" value="${localStorage.getItem('store_sync_pin') || 'AKIOFLORIST'}" placeholder="AKIOFLORIST">
+              <input type="text" id="input-store-pin" class="form-control" style="font-weight:bold; letter-spacing:1px;" value="${localStorage.getItem('store_sync_pin') || ''}" placeholder="PIN rahasia Anda (min. 6 karakter)">
               <button class="btn btn-primary" onclick="handleSaveStorePin()">🔗 Hubungkan</button>
             </div>
             <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.4rem;">
-              💡 Masukkan PIN yang sama di HP & PC (minimal 6 huruf/angka, misal: <b>AKIOFLORIST</b>).
+              💡 Buat PIN sendiri minimal 6 huruf/angka, lalu samakan di HP & PC. PIN hanya disimpan di perangkat Anda, bukan di GitHub.
             </div>
           </div>
 

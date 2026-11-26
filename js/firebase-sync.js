@@ -2,7 +2,8 @@
 // Memungkinkan PC dan HP sinkron instan (< 1 detik) dari mana saja (4G/5G / Beda Wi-Fi)
 // Bebas dari login Google OAuth yang sering kadaluarsa.
 
-const DEFAULT_STORE_PIN = 'AKIOFLORIST';
+// PIN toko TIDAK disimpan di kode. Diisi pengguna lewat menu Pengaturan & Sync
+// dan disimpan hanya di perangkat (localStorage: store_sync_pin).
 
 // Default Public Firebase Realtime DB Config (bebas kuota hingga 100 koneksi bersamaan)
 const DEFAULT_FIREBASE_CONFIG = {
@@ -10,7 +11,7 @@ const DEFAULT_FIREBASE_CONFIG = {
 };
 
 let firebaseDb = null;
-let currentStorePin = localStorage.getItem('store_sync_pin') || DEFAULT_STORE_PIN;
+let currentStorePin = localStorage.getItem('store_sync_pin') || '';
 let isPullingFromCloud = false; // Flag khusus cegah infinite loop saat menerima update dari cloud
 
 const realtimeState = {
@@ -20,6 +21,11 @@ const realtimeState = {
   lastError: null,
   syncing: false
 };
+
+// PIN minimal 6 karakter sesuai aturan Firebase. Tidak ada PIN bawaan di kode.
+function hasStorePin() {
+  return !!currentStorePin && currentStorePin.length >= 6;
+}
 
 // ─── Inisialisasi Firebase Realtime DB ───────────────────────────────────────
 
@@ -32,6 +38,22 @@ function initFirebaseRealtimeSync() {
   }
 
   try {
+    // Jangan buka koneksi cloud sebelum PIN diisi sendiri oleh pengguna
+    currentStorePin = localStorage.getItem('store_sync_pin') || '';
+    if (!hasStorePin()) {
+      firebaseDb = null;
+      realtimeState.isConnected = false;
+      realtimeState.lastError = 'PIN Sync Toko belum diatur. Buka Pengaturan & Sync, isi PIN minimal 6 karakter, lalu klik Hubungkan.';
+      updateRealtimeUI();
+      return;
+    }
+
+    // Lepaskan listener lama agar tidak menumpuk saat init dipanggil ulang
+    if (firebaseDb) {
+      firebaseDb.ref('.info/connected').off();
+      firebaseDb.ref('stores').off();
+    }
+
     const customUrl = localStorage.getItem('custom_firebase_url');
     let config = customUrl ? { databaseURL: customUrl } : DEFAULT_FIREBASE_CONFIG;
 
@@ -46,8 +68,6 @@ function initFirebaseRealtimeSync() {
     }
     firebaseDb = firebase.database();
 
-    currentStorePin = localStorage.getItem('store_sync_pin') || DEFAULT_STORE_PIN;
-    
     const connectedRef = firebaseDb.ref('.info/connected');
     connectedRef.on('value', (snap) => {
       realtimeState.isConnected = snap.val() === true;
@@ -70,7 +90,7 @@ function initFirebaseRealtimeSync() {
 // ─── Event Listener Perubahan Data dari Cloud (Live Realtime) ───────────────
 
 function attachRealtimeListeners() {
-  if (!firebaseDb) return;
+  if (!firebaseDb || !hasStorePin()) return;
 
   const storeRef = firebaseDb.ref(`stores/${currentStorePin}`);
 
@@ -189,7 +209,7 @@ function attachRealtimeListeners() {
 let pushDebounceTimer = null;
 
 async function pushRealtimeChange(type, payload, immediate = false) {
-  if (!firebaseDb || !realtimeState.isConnected || isPullingFromCloud) return;
+  if (!firebaseDb || !hasStorePin() || !realtimeState.isConnected || isPullingFromCloud) return;
 
   if (pushDebounceTimer) {
     clearTimeout(pushDebounceTimer);
@@ -258,11 +278,12 @@ async function setStoreSyncPin(newPin) {
   currentStorePin = cleanPin;
   localStorage.setItem('store_sync_pin', cleanPin);
 
-  // Re-attach listener ke PIN toko yang baru
-  if (firebaseDb) {
-    firebaseDb.ref(`stores`).off();
-    attachRealtimeListeners();
+  // Hubungkan ulang memakai PIN baru (init melepaskan listener lama)
+  if (typeof initFirebaseRealtimeSync === 'function') {
+    initFirebaseRealtimeSync();
+  }
 
+  if (firebaseDb) {
     try {
       // Periksa apakah cloud sudah memiliki data untuk PIN ini
       const checkSnap = await firebaseDb.ref(`stores/${cleanPin}`).once('value');
@@ -287,6 +308,10 @@ async function setStoreSyncPin(newPin) {
 // ─── Tes Koneksi & Paksa Sinkronisasi Sekarang ──────────────────────────────
 
 async function triggerManualRealtimeSync() {
+  if (!hasStorePin()) {
+    alert('⚠️ PIN Sync Toko belum diatur. Buka menu Pengaturan & Sync, isi PIN minimal 6 karakter, lalu klik Hubungkan.');
+    return;
+  }
   if (!navigator.onLine) {
     alert('⚠️ Perangkat sedang OFFLINE. Pastikan koneksi internet aktif.');
     return;
@@ -342,7 +367,10 @@ function updateRealtimeUI() {
 
   if (!badge) return;
 
-  if (!navigator.onLine) {
+  if (!hasStorePin()) {
+    badge.className = 'sync-status-badge offline';
+    badge.innerHTML = '🔑 PIN BELUM DISET';
+  } else if (!navigator.onLine) {
     badge.className = 'sync-status-badge offline';
     badge.innerHTML = '⚡ OFFLINE';
   } else if (realtimeState.isConnected) {
@@ -358,7 +386,9 @@ function updateRealtimeUI() {
   }
 
   if (lastSyncText) {
-    if (realtimeState.lastError) {
+    if (!hasStorePin()) {
+      lastSyncText.innerText = 'Buka Pengaturan & Sync';
+    } else if (realtimeState.lastError) {
       lastSyncText.innerText = `Err: ${realtimeState.lastError.substring(0, 20)}`;
     } else {
       lastSyncText.innerText = realtimeState.lastSyncTime ? `Live: ${realtimeState.lastSyncTime}` : `PIN: ${currentStorePin}`;

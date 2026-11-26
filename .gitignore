@@ -1,0 +1,21 @@
+# Data pelanggan / backup sensitif — JANGAN di-commit
+data_initial.json
+backup*.json
+*.db
+*.db-journal
+
+# Aplikasi desktop & lingkungan Python
+.venv/
+__pycache__/
+*.pyc
+*.spec
+*.ico
+build/
+dist/
+backups/
+
+# Editor & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
