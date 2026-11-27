@@ -263,6 +263,9 @@ async function updateFinanceKeyStatus() {
       el.textContent = (hasUrl && pass)
         ? 'Halaman publik siap menandatangani lewat Worker. Kata sandi kunci tersimpan untuk sesi browser ini — buat nota langsung dari sini.'
         : 'Halaman publik: kunci privat tidak ada di sini. Isi URL Worker dan kata sandi kunci di bawah, lalu buat nota. Tombol Buka kunci hanya untuk komputer toko.';
+    } else if (s.stale) {
+      el.style.color = '#f87171';
+      el.textContent = 'Salinan kunci di browser sudah berbeda dengan file di komputer — kata sandinya bisa jadi berbeda. Klik ↺ Muat ulang dari file, lalu pakai kata sandi file terbaru.';
     } else if (!s.hasBox) {
       el.style.color = '#f87171';
       el.textContent = 'Berkas kunci tidak ditemukan di folder web/data/signing-key.enc.json pada komputer toko.';

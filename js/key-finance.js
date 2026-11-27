@@ -144,11 +144,26 @@
   }
   async function status(){
     const box = await readBox();
+    let storedCreatedAt = null;
+    try{
+      const raw = localStorage.getItem(STORE);
+      if(raw) storedCreatedAt = JSON.parse(raw).createdAt || null;
+    }catch(e){}
+    let fileCreatedAt = null;
+    if(isLocal()){
+      try{
+        const res = await fetch(KEY_FILE, { cache:"no-store" });
+        if(res.ok) fileCreatedAt = (await res.json()).createdAt || null;
+      }catch(e){}
+    }
     return {
       ready: ready && !!signKeys,
       isLocal: isLocal(),
       hasBox: !!box,
-      hasStoredBox: !!(function(){ try{ return localStorage.getItem(STORE); }catch(e){ return false; } })(),
+      hasStoredBox: storedCreatedAt !== null,
+      storedCreatedAt,
+      fileCreatedAt,
+      stale: !!(storedCreatedAt && fileCreatedAt && storedCreatedAt !== fileCreatedAt),
       fingerprint: (box && box.fingerprint) || (window.AKIO_FINANCE_VERIFY && window.AKIO_FINANCE_VERIFY.fingerprint) || "—"
     };
   }

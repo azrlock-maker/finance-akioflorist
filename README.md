@@ -55,4 +55,4 @@ Jangan pernah menyimpan kata sandi kunci sebagai secret Worker; kata sandi dimin
 
 ## Catatan deploy
 
-`index.html`, `manifest.json`, aset CSS/JS, dan `sw.js` memakai cache buster `?v=48`. Saat mengubah file JS/CSS, naikkan nomor versi tersebut **dan** `CACHE_NAME` di `sw.js` agar browser tidak menyajikan versi lama.
+`index.html`, `manifest.json`, aset CSS/JS, dan `sw.js` memakai cache buster `?v=49`. Saat mengubah file JS/CSS, naikkan nomor versi tersebut **dan** `CACHE_NAME` di `sw.js` agar browser tidak menyajikan versi lama.
