@@ -136,16 +136,25 @@ async function renderPengaturanModule() {
             <div class="card-title">🛡️ Kunci Tanda Tangan Nota (Anti-Palsu)</div>
           </div>
           <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.85rem; line-height:1.45;">
-            Kunci privat <b>hanya ada di komputer toko</b>, dienkripsi dengan kata sandi (PBKDF2 + AES-GCM).
-            Kunci yang dikirim ke GitHub hanyalah kunci publik untuk memeriksa QR.
-            Setiap kali aplikasi dibuka, isi kata sandi lalu klik <b>Buka kunci</b> sebelum mencetak nota.
+            Kunci privat <b>tidak pernah dikirim ke GitHub</b>, dienkripsi dengan kata sandi (PBKDF2 + AES-GCM).
+            Di komputer toko, kunci dibuka langsung di browser. Di halaman publik, penandatanganan dilakukan oleh Worker.
           </p>
           <div id="finance-key-status" style="font-size:0.82rem; margin-bottom:0.85rem; padding:0.65rem 0.75rem; border-radius:8px; background:rgba(148,163,184,0.12);">
             Memeriksa kunci…
           </div>
-          <div class="form-group">
-            <label class="form-label">Kata sandi kunci nota</label>
+          <div class="form-group" id="finance-key-pass-group">
+            <label class="form-label">Kata sandi kunci nota (komputer toko)</label>
             <input type="password" id="finance-key-pass" class="form-control" autocomplete="current-password" placeholder="••••••••••••••••••••">
+          </div>
+          <div class="form-group" id="finance-worker-pass-group" style="display:none;">
+            <label class="form-label">Kata sandi kunci untuk Worker (sesi browser ini)</label>
+            <div style="display:flex; gap:0.5rem;">
+              <input type="password" id="finance-worker-pass" class="form-control" autocomplete="current-password" placeholder="••••••••••••••••••••">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="handleSaveFinanceWorkerPass()">💾 Simpan sesi</button>
+            </div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-top:0.4rem; line-height:1.4;">
+              Kata sandi hanya disimpan di sesi browser ini, tidak dikirim ke GitHub. Akan diminta otomatis saat membuat nota kalau belum diisi.
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">URL Worker Penandatanganan (khusus halaman publik)</label>
@@ -154,16 +163,16 @@ async function renderPengaturanModule() {
               <button type="button" class="btn btn-secondary btn-sm" onclick="handleSaveFinanceSignUrl()">💾 Simpan</button>
             </div>
             <div style="font-size:0.72rem; color:var(--text-muted); margin-top:0.4rem; line-height:1.4;">
-              Hanya diisi jika nota dibuat dari GitHub Pages. Kata sandi kunci tetap diminta setiap kali, tidak disimpan permanen.
+              Isi URL Worker hasil deploy Cloudflare agar halaman publik bisa membuat QR nota.
             </div>
           </div>
-          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <div id="finance-key-local-buttons" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
             <button type="button" class="btn btn-primary btn-sm" onclick="handleFinanceKeyUnlock()">🔓 Buka kunci</button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="handleFinanceKeyChangePassword()">🔑 Ganti kata sandi</button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="handleFinanceKeyExport()">📥 Ekspor kunci terenkripsi</button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="handleFinanceKeyReloadFromFile()">↺ Muat ulang dari file</button>
           </div>
-          <p style="font-size:0.72rem; color:var(--text-muted); margin-top:0.75rem; line-height:1.4;">
+          <p id="finance-key-help" style="font-size:0.72rem; color:var(--text-muted); margin-top:0.75rem; line-height:1.4;">
             Kata sandi tidak disimpan permanen (hanya selama tab ini terbuka). Kalau hilang, kunci tidak bisa dibuka dan nota harus dicetak ulang dengan kunci baru.<br>
             Jika kata sandi yang sebelumnya berhasil tiba-tiba ditolak, klik <b>Muat ulang dari file</b> untuk membuang salinan lama di browser.
           </p>
@@ -229,9 +238,23 @@ async function updateFinanceKeyStatus() {
   if (!el || !window.FinanceKey) return;
   try {
     const s = await window.FinanceKey.status();
+    const localGroup = document.getElementById('finance-key-pass-group');
+    const workerGroup = document.getElementById('finance-worker-pass-group');
+    const localButtons = document.getElementById('finance-key-local-buttons');
+    const help = document.getElementById('finance-key-help');
+    if (localGroup) localGroup.style.display = s.isLocal ? '' : 'none';
+    if (workerGroup) workerGroup.style.display = s.isLocal ? 'none' : '';
+    if (localButtons) localButtons.style.display = s.isLocal ? 'flex' : 'none';
+    if (help) help.style.display = s.isLocal ? '' : 'none';
+
     if (!s.isLocal) {
-      el.style.color = '#fbbf24';
-      el.textContent = 'Halaman publik: hanya bisa MEMERIKSA QR. Kunci privat tidak tersedia di sini — buka aplikasi di komputer toko (http://localhost:8000) untuk mencetak nota.';
+      const hasUrl = !!String(localStorage.getItem('finance_sign_url') || '').trim();
+      let pass = '';
+      try { pass = sessionStorage.getItem('akioFinance.remotePass') || ''; } catch (e) {}
+      el.style.color = (hasUrl && pass) ? '#34d399' : '#fbbf24';
+      el.textContent = (hasUrl && pass)
+        ? 'Halaman publik siap menandatangani lewat Worker. Kata sandi kunci tersimpan untuk sesi browser ini — buat nota langsung dari sini.'
+        : 'Halaman publik: kunci privat tidak ada di sini. Isi URL Worker dan kata sandi kunci di bawah, lalu buat nota. Tombol Buka kunci hanya untuk komputer toko.';
     } else if (!s.hasBox) {
       el.style.color = '#f87171';
       el.textContent = 'Berkas kunci tidak ditemukan di folder web/data/signing-key.enc.json pada komputer toko.';
@@ -249,6 +272,10 @@ async function updateFinanceKeyStatus() {
 }
 
 async function handleFinanceKeyUnlock() {
+  if (window.FinanceKey && typeof window.FinanceKey.isLocal === 'function' && !window.FinanceKey.isLocal()) {
+    alert('Halaman publik tidak menyimpan kunci privat. Isi URL Worker dan kata sandi kunci di bawah, lalu buat nota langsung dari sini.');
+    return;
+  }
   const pass = (document.getElementById('finance-key-pass') || {}).value || '';
   try {
     await window.FinanceKey.unlock(pass);
@@ -311,6 +338,21 @@ function handleSaveFinanceSignUrl() {
     localStorage.removeItem('finance_sign_url');
     alert('URL Worker dihapus. Halaman publik tidak bisa menandatangani nota.');
   }
+}
+
+function handleSaveFinanceWorkerPass() {
+  const input = document.getElementById('finance-worker-pass');
+  if (!input) return;
+  const pass = String(input.value || '');
+  if (!pass) {
+    try { sessionStorage.removeItem('akioFinance.remotePass'); } catch (e) {}
+    alert('Kata sandi Worker dihapus dari sesi ini.');
+  } else {
+    try { sessionStorage.setItem('akioFinance.remotePass', pass); } catch (e) {}
+    alert('Kata sandi kunci disimpan untuk sesi browser ini saja. Tutup browser untuk menghapusnya.');
+  }
+  input.value = '';
+  updateFinanceKeyStatus();
 }
 
 async function handleFinanceKeyReloadFromFile() {

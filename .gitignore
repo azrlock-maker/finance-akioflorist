@@ -17,6 +17,9 @@ build/
 dist/
 backups/
 
+# Cloudflare Wrangler (bisa berisi cache/state lokal)
+.wrangler/
+
 # Editor & OS
 .vscode/
 .idea/
