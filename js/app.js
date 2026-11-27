@@ -18,8 +18,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load Store Header Logo & Nama Toko
   loadHeaderStoreProfile();
 
-  // Render initial view
-  switchView('dashboard');
+  // Render initial view. Buka langsung lewat #pengaturan jika diminta.
+  const hashView = (location.hash || '').replace(/^#/, '');
+  const initialView = hashView && document.getElementById(`view-${hashView}`) ? hashView : 'dashboard';
+  switchView(initialView);
+});
+
+window.addEventListener('hashchange', () => {
+  const hashView = (location.hash || '').replace(/^#/, '');
+  if (hashView && document.getElementById(`view-${hashView}`)) switchView(hashView);
 });
 
 async function loadHeaderStoreProfile() {

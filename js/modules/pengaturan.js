@@ -151,9 +151,11 @@ async function renderPengaturanModule() {
             <button type="button" class="btn btn-primary btn-sm" onclick="handleFinanceKeyUnlock()">🔓 Buka kunci</button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="handleFinanceKeyChangePassword()">🔑 Ganti kata sandi</button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="handleFinanceKeyExport()">📥 Ekspor kunci terenkripsi</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="handleFinanceKeyReloadFromFile()">↺ Muat ulang dari file</button>
           </div>
           <p style="font-size:0.72rem; color:var(--text-muted); margin-top:0.75rem; line-height:1.4;">
-            Kata sandi tidak disimpan permanen (hanya selama tab ini terbuka). Kalau hilang, kunci tidak bisa dibuka dan nota harus dicetak ulang dengan kunci baru.
+            Kata sandi tidak disimpan permanen (hanya selama tab ini terbuka). Kalau hilang, kunci tidak bisa dibuka dan nota harus dicetak ulang dengan kunci baru.<br>
+            Jika kata sandi yang sebelumnya berhasil tiba-tiba ditolak, klik <b>Muat ulang dari file</b> untuk membuang salinan lama di browser.
           </p>
         </div>
 
@@ -285,6 +287,17 @@ async function handleFinanceKeyExport() {
   } catch (e) {
     alert('⚠️ Gagal mengekspor kunci: ' + e.message);
   }
+}
+
+async function handleFinanceKeyReloadFromFile() {
+  const ok = confirm('Hapus salinan kunci di browser lalu baca ulang web/data/signing-key.enc.json?\n\nKata sandi yang berlaku adalah kata sandi file di komputer ini. Setelah ini halaman akan dimuat ulang.');
+  if (!ok) return;
+  try {
+    localStorage.removeItem('akioFinance.signing.v1');
+    sessionStorage.removeItem('akioFinance.unlock');
+    if (window.FinanceKey && typeof window.FinanceKey.lock === 'function') window.FinanceKey.lock();
+  } catch (e) {}
+  location.reload();
 }
 
 // Upload Handler Gambar Logo Toko
