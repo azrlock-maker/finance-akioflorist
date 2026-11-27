@@ -5,6 +5,8 @@
 
 const FORMAT = "AKIOFIN1";
 const EXPECTED_FINGERPRINT = "142D3FB5";
+// Cloudflare Workers membatasi PBKDF2 maksimal 100.000 iterasi.
+const MAX_ITER = 100000;
 const ITERATIONS_HINT = "PBKDF2-SHA256/AES-GCM";
 
 function b64urlToBytes(str) {
@@ -23,7 +25,7 @@ function bytesToB64url(buf) {
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-async function deriveKey(pass, salt) {
+async function deriveKey(pass, salt, iterations) {
   const material = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(pass),
@@ -32,7 +34,7 @@ async function deriveKey(pass, salt) {
     ["deriveKey"]
   );
   return crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: 310000, hash: "SHA-256" },
+    { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
     material,
     { name: "AES-GCM", length: 256 },
     false,
@@ -44,7 +46,8 @@ async function openPrivate(box, pass) {
   if (!box || !box.salt || !box.iv || !box.data) {
     throw new Error("SIGNING_KEY_BOX tidak lengkap");
   }
-  const aes = await deriveKey(pass, b64urlToBytes(box.salt));
+  const iterations = Math.min(Number(box.iterations) || MAX_ITER, MAX_ITER);
+  const aes = await deriveKey(pass, b64urlToBytes(box.salt), iterations);
   const plain = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: b64urlToBytes(box.iv) },
     aes,

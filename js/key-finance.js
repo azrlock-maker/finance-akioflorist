@@ -6,7 +6,9 @@
   const STORE = "akioFinance.signing.v1";
   const SESSION = "akioFinance.unlock";
   const KEY_FILE = "./data/signing-key.enc.json";
-  const ITER = 310000;
+  // Cloudflare Workers membatasi PBKDF2 maksimal 100.000 iterasi.
+  // Gunakan 100.000 agar kotak kunci yang sama bisa dibuka lokal DAN oleh Worker.
+  const ITER = 100000;
   const FORMAT = "AKIOFIN1";
 
   let signKeys = null;
@@ -31,12 +33,12 @@
     for(let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
     return out;
   }
-  async function deriveKey(pass, salt){
+  async function deriveKey(pass, salt, iterations){
     const material = await crypto.subtle.importKey(
       "raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]
     );
     return crypto.subtle.deriveKey(
-      { name:"PBKDF2", salt: salt, iterations: ITER, hash:"SHA-256" },
+      { name:"PBKDF2", salt: salt, iterations: iterations || ITER, hash:"SHA-256" },
       material, { name:"AES-GCM", length:256 }, false, ["encrypt","decrypt"]
     );
   }
@@ -56,7 +58,7 @@
   }
   async function openPrivate(box, pass){
     if(!box || !box.salt || !box.iv || !box.data) throw new Error("Berkas kunci tidak lengkap");
-    const aes = await deriveKey(pass, fromB64url(box.salt));
+    const aes = await deriveKey(pass, fromB64url(box.salt), box.iterations || ITER);
     const plain = await crypto.subtle.decrypt(
       { name:"AES-GCM", iv:fromB64url(box.iv) }, aes, fromB64url(box.data)
     );

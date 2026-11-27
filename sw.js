@@ -1,24 +1,24 @@
-const CACHE_NAME = 'papan-bunga-finance-v49';
+const CACHE_NAME = 'papan-bunga-finance-v50';
 const ASSETS_TO_CACHE = [
   './',
-  './index.html?v=49',
-  './manifest.json?v=49',
-  './css/style.css?v=49',
-  './css/components.css?v=49',
-  './js/verifikasi-kunci.js?v=49',
-  './js/key-finance.js?v=49',
-  './js/db.js?v=49',
-  './js/gdrive-sync.js?v=49',
-  './js/firebase-sync.js?v=49',
-  './js/app.js?v=49',
-  './js/modules/dashboard.js?v=49',
-  './js/modules/pesanan.js?v=49',
-  './js/modules/proses.js?v=49',
-  './js/modules/keuangan.js?v=49',
-  './js/modules/hutang.js?v=49',
-  './js/modules/jadwal.js?v=49',
-  './js/modules/laporan.js?v=49',
-  './js/modules/pengaturan.js?v=49',
+  './index.html?v=50',
+  './manifest.json?v=50',
+  './css/style.css?v=50',
+  './css/components.css?v=50',
+  './js/verifikasi-kunci.js?v=50',
+  './js/key-finance.js?v=50',
+  './js/db.js?v=50',
+  './js/gdrive-sync.js?v=50',
+  './js/firebase-sync.js?v=50',
+  './js/app.js?v=50',
+  './js/modules/dashboard.js?v=50',
+  './js/modules/pesanan.js?v=50',
+  './js/modules/proses.js?v=50',
+  './js/modules/keuangan.js?v=50',
+  './js/modules/hutang.js?v=50',
+  './js/modules/jadwal.js?v=50',
+  './js/modules/laporan.js?v=50',
+  './js/modules/pengaturan.js?v=50',
   'https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js'
@@ -62,7 +62,7 @@ self.addEventListener('fetch', (e) => {
       return fetch(e.request).catch(() => {
         const accept = e.request.headers.get('accept');
         if (accept && accept.includes('text/html')) {
-          return caches.match('./index.html?v=49');
+          return caches.match('./index.html?v=50');
         }
       });
     })

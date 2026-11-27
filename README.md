@@ -53,6 +53,8 @@ Klik **🧪 Uji Worker & kata sandi** di Pengaturan sebelum mencetak nota. Tombo
 
 Jangan pernah menyimpan kata sandi kunci sebagai secret Worker; kata sandi diminta per request dan hanya disimpan di `sessionStorage` browser.
 
+Penting: Cloudflare Workers membatasi PBKDF2 maksimal **100.000 iterasi**. Kotak kunci yang dipakai Worker harus memakai `iterations: 100000` (bukan 310000). Aplikasi lokal membaca angka ini dari berkas kunci, jadi berkas yang sama bisa dipakai di localhost dan Worker.
+
 ## Catatan deploy
 
-`index.html`, `manifest.json`, aset CSS/JS, dan `sw.js` memakai cache buster `?v=49`. Saat mengubah file JS/CSS, naikkan nomor versi tersebut **dan** `CACHE_NAME` di `sw.js` agar browser tidak menyajikan versi lama.
+`index.html`, `manifest.json`, aset CSS/JS, dan `sw.js` memakai cache buster `?v=50`. Saat mengubah file JS/CSS, naikkan nomor versi tersebut **dan** `CACHE_NAME` di `sw.js` agar browser tidak menyajikan versi lama.
