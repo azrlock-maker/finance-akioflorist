@@ -42,15 +42,17 @@ GitHub Pages hanya statis dan tidak boleh menyimpan kunci privat. Jika nota haru
 npm install -g wrangler
 wrangler login
 cd worker
-wrangler secret put SIGNING_KEY_BOX
-# Tempel seluruh isi D:\Installer Mesin Styrofoam\FINANCE\web\data\signing-key.enc.json
+# Jangan menempel manual ke prompt (JSON multiline bisa rusak). Pipe langsung dari file:
+Get-Content 'D:\Installer Mesin Styrofoam\FINANCE\web\data\signing-key.enc.json' -Raw | wrangler secret put SIGNING_KEY_BOX
 wrangler deploy
 ```
 
 Salin URL deployment (misalnya `https://akio-finance-sign.<akun>.workers.dev/sign`) ke menu **Pengaturan & Sync → URL Worker Penandatanganan** di browser yang dipakai. Saat membuat nota, aplikasi akan meminta kata sandi kunci lalu mengirimkan data nota ke Worker untuk ditandatangani.
 
+Klik **🧪 Uji Worker & kata sandi** di Pengaturan sebelum mencetak nota. Tombol ini melaporkan error sebenarnya (misalnya kata sandi lama), daripada pesan umum "kunci belum terbuka".
+
 Jangan pernah menyimpan kata sandi kunci sebagai secret Worker; kata sandi diminta per request dan hanya disimpan di `sessionStorage` browser.
 
 ## Catatan deploy
 
-`index.html`, `manifest.json`, aset CSS/JS, dan `sw.js` memakai cache buster `?v=47`. Saat mengubah file JS/CSS, naikkan nomor versi tersebut **dan** `CACHE_NAME` di `sw.js` agar browser tidak menyajikan versi lama.
+`index.html`, `manifest.json`, aset CSS/JS, dan `sw.js` memakai cache buster `?v=48`. Saat mengubah file JS/CSS, naikkan nomor versi tersebut **dan** `CACHE_NAME` di `sw.js` agar browser tidak menyajikan versi lama.

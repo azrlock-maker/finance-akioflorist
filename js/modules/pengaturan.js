@@ -166,6 +166,12 @@ async function renderPengaturanModule() {
               Isi URL Worker hasil deploy Cloudflare agar halaman publik bisa membuat QR nota.
             </div>
           </div>
+          <div id="finance-worker-test" style="display:none; margin-bottom:0.85rem;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="handleTestFinanceSign()">🧪 Uji Worker & kata sandi</button>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-top:0.4rem; line-height:1.4;">
+              Klik ini sebelum mencetak nota untuk memastikan Worker aktif dan kata sandi kunci benar.
+            </div>
+          </div>
           <div id="finance-key-local-buttons" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
             <button type="button" class="btn btn-primary btn-sm" onclick="handleFinanceKeyUnlock()">🔓 Buka kunci</button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="handleFinanceKeyChangePassword()">🔑 Ganti kata sandi</button>
@@ -241,10 +247,12 @@ async function updateFinanceKeyStatus() {
     const localGroup = document.getElementById('finance-key-pass-group');
     const workerGroup = document.getElementById('finance-worker-pass-group');
     const localButtons = document.getElementById('finance-key-local-buttons');
+    const workerTest = document.getElementById('finance-worker-test');
     const help = document.getElementById('finance-key-help');
     if (localGroup) localGroup.style.display = s.isLocal ? '' : 'none';
     if (workerGroup) workerGroup.style.display = s.isLocal ? 'none' : '';
     if (localButtons) localButtons.style.display = s.isLocal ? 'flex' : 'none';
+    if (workerTest) workerTest.style.display = s.isLocal ? 'none' : '';
     if (help) help.style.display = s.isLocal ? '' : 'none';
 
     if (!s.isLocal) {
@@ -353,6 +361,28 @@ function handleSaveFinanceWorkerPass() {
   }
   input.value = '';
   updateFinanceKeyStatus();
+}
+
+async function handleTestFinanceSign() {
+  const endpoint = String(localStorage.getItem('finance_sign_url') || '').trim();
+  if (!endpoint) { alert('⚠️ Isi URL Worker dulu, lalu klik 💾 Simpan.'); return; }
+  let pass = '';
+  try { pass = sessionStorage.getItem('akioFinance.remotePass') || ''; } catch (e) {}
+  if (!pass) { alert('⚠️ Isi kata sandi kunci untuk Worker, lalu klik 💾 Simpan sesi.'); return; }
+
+  const tanggal = typeof getTodayLocal === 'function' ? getTodayLocal() : new Date().toISOString().split('T')[0];
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ no: 'UJI-WORKER', tanggal, nama: 'Uji Worker', total: 1, password: pass })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.signature) throw new Error(data.error || ('HTTP ' + res.status));
+    alert('✅ Worker aktif dan kata sandi kunci benar. Sidik ' + data.k + '. Nota sekarang bisa dibuat.');
+  } catch (e) {
+    alert('⚠️ Worker gagal: ' + e.message + '\n\nCek URL Worker, lalu pastikan kata sandi yang dipakai adalah kata sandi terbaru dari web/data/signing-key.enc.json.');
+  }
 }
 
 async function handleFinanceKeyReloadFromFile() {

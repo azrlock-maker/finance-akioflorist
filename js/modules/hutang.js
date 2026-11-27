@@ -196,7 +196,7 @@ async function printNotaGabungan(namaPelanggan) {
     signature = await generateInvoiceDigitalSignature('GABUNGAN', todayStr, targetNama, totalSisaHutang);
   } catch (err) {
     console.warn('[QR Code Hutang] Tanda tangan gagal:', err);
-    alert('Kunci nota belum terbuka. Buka Pengaturan → isi kata sandi → Buka kunci, lalu cetak ulang nota.');
+    alert('Tanda tangan nota hutang gagal: ' + err.message + '\n\nDi komputer toko: buka kunci lewat Pengaturan.\nDi halaman publik: cek URL Worker dan kata sandi kunci di Pengaturan.');
   }
 
   const cfgVerify = window.AKIO_FINANCE_VERIFY;
