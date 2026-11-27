@@ -300,6 +300,19 @@ async function handleFinanceKeyUnlock() {
 }
 
 async function handleFinanceKeyChangePassword() {
+  // Di komputer toko, salinan lama di localStorage bisa meng-override file terbaru.
+  // Tawarkan pembaruan dulu supaya sandi lama yang benar diterima.
+  try {
+    if (window.FinanceKey && typeof window.FinanceKey.isLocal === 'function' && window.FinanceKey.isLocal()) {
+      const s = await window.FinanceKey.status();
+      if (s.stale && confirm('Salinan kunci di browser berbeda dengan file di komputer. Buang salinan lama dan pakai file terbaru?')) {
+        localStorage.removeItem('akioFinance.signing.v1');
+        sessionStorage.removeItem('akioFinance.unlock');
+        if (typeof window.FinanceKey.lock === 'function') window.FinanceKey.lock();
+      }
+    }
+  } catch (e) {}
+
   const oldPass = prompt('Kata sandi kunci saat ini:');
   if (!oldPass) return;
   const newPass = prompt('Kata sandi baru (minimal 10 karakter):');
@@ -312,7 +325,7 @@ async function handleFinanceKeyChangePassword() {
     alert('✅ Kata sandi kunci berhasil diganti. Berkas kunci baru sudah diunduh — timpa web/data/signing-key.enc.json dengan berkas tersebut agar kata sandi baru berlaku juga di komputer/flashdisk.');
     updateFinanceKeyStatus();
   } catch (e) {
-    alert('⚠️ Gagal mengganti kata sandi: ' + e.message);
+    alert('⚠️ Gagal mengganti kata sandi: ' + e.message + '\n\nGunakan kata sandi berkas web/data/signing-key.enc.json yang terbaru. Kalau ragu, klik ↺ Muat ulang dari file dulu, lalu ulangi.');
   }
 }
 

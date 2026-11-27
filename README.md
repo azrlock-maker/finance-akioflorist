@@ -57,4 +57,4 @@ Penting: Cloudflare Workers membatasi PBKDF2 maksimal **100.000 iterasi**. Kotak
 
 ## Catatan deploy
 
-`index.html`, `manifest.json`, aset CSS/JS, dan `sw.js` memakai cache buster `?v=50`. Saat mengubah file JS/CSS, naikkan nomor versi tersebut **dan** `CACHE_NAME` di `sw.js` agar browser tidak menyajikan versi lama.
+`index.html`, `manifest.json`, aset CSS/JS, dan `sw.js` memakai cache buster `?v=51`. Saat mengubah file JS/CSS, naikkan nomor versi tersebut **dan** `CACHE_NAME` di `sw.js` agar browser tidak menyajikan versi lama.
