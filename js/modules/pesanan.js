@@ -449,12 +449,50 @@ async function handleHapusPesanan(id) {
 }
 
 // === TANDA TANGAN DIGITAL ECDSA P-256 ===
-// Kunci privat HANYA ada di aplikasi lokal. Kunci publik ada di js/verifikasi-kunci.js.
+// Lokal: kunci privat dibuka di browser. Publik: tanda tangan lewat Worker dengan kata sandi.
 async function generateInvoiceDigitalSignature(no_nota, tanggal, nama_pemesan, harga) {
   const cfg = window.AKIO_FINANCE_VERIFY;
-  if (!cfg || !window.FinanceKey) throw new Error('Kunci verifikasi nota belum dimuat');
-  const canon = window.FinanceKey.canonical(no_nota, tanggal, nama_pemesan, harga, cfg.fingerprint);
-  return window.FinanceKey.signCanonical(canon);
+  if (!cfg) throw new Error('Kunci verifikasi nota belum dimuat');
+
+  if (window.FinanceKey && window.FinanceKey.isLocal()) {
+    const canon = window.FinanceKey.canonical(no_nota, tanggal, nama_pemesan, harga, cfg.fingerprint);
+    return window.FinanceKey.signCanonical(canon);
+  }
+
+  const endpoint = String(localStorage.getItem('finance_sign_url') || cfg.signUrl || '').trim();
+  if (!endpoint) {
+    throw new Error('URL Worker penandatanganan belum diisi. Buka Pengaturan → isi URL Worker.');
+  }
+
+  let pass = '';
+  try { pass = sessionStorage.getItem('akioFinance.remotePass') || ''; } catch (e) {}
+  if (!pass) {
+    pass = prompt('Kata sandi kunci nota (dikirim ke Worker penandatanganan):') || '';
+    if (pass) {
+      try { sessionStorage.setItem('akioFinance.remotePass', pass); } catch (e) {}
+    }
+  }
+  if (!pass) throw new Error('Kata sandi kunci diperlukan untuk menandatangani nota');
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      no: String(no_nota || ''),
+      tanggal: String(tanggal || ''),
+      nama: String(nama_pemesan || ''),
+      total: String(harga || 0),
+      password: pass
+    })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.signature) {
+    throw new Error(data.error || 'Worker menolak permintaan tanda tangan');
+  }
+  if (data.k && data.k !== cfg.fingerprint) {
+    throw new Error('Sidik kunci Worker tidak cocok dengan kunci publik');
+  }
+  return data.signature;
 }
 
 function invoiceVerifyParams(no_nota, tanggal, nama_pemesan, harga, signature) {
@@ -586,7 +624,7 @@ async function printInvoiceObject(p) {
     signature = await generateInvoiceDigitalSignature(p.no_nota, p.tanggal, p.nama_pemesan, p.harga);
   } catch (err) {
     console.warn('[QR Code] Tanda tangan gagal:', err);
-    alert('Kunci nota belum terbuka. Buka menu Pengaturan → isi kata sandi → Buka kunci, lalu cetak ulang nota.');
+    alert('Tanda tangan nota gagal: ' + err.message + '\n\nDi komputer toko: buka kunci lewat Pengaturan.\nDi halaman publik: isi URL Worker di Pengaturan.');
   }
 
   // QR selalu mengarah ke halaman verifikasi resmi di GitHub Pages.

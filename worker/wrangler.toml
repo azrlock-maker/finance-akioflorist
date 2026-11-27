@@ -1,0 +1,9 @@
+name = "akio-finance-sign"
+main = "sign.js"
+compatibility_date = "2026-11-27"
+workers_dev = true
+
+# Jangan pernah taruh kunci privat atau kata sandi di file ini.
+# Kunci terenkripsi diset lewat:
+#   wrangler secret put SIGNING_KEY_BOX
+# lalu tempel isi D:\Installer Mesin Styrofoam\FINANCE\web\data\signing-key.enc.json

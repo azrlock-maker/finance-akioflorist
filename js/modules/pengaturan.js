@@ -147,6 +147,16 @@ async function renderPengaturanModule() {
             <label class="form-label">Kata sandi kunci nota</label>
             <input type="password" id="finance-key-pass" class="form-control" autocomplete="current-password" placeholder="••••••••••••••••••••">
           </div>
+          <div class="form-group">
+            <label class="form-label">URL Worker Penandatanganan (khusus halaman publik)</label>
+            <div style="display:flex; gap:0.5rem;">
+              <input type="url" id="finance-sign-url" class="form-control" value="${localStorage.getItem('finance_sign_url') || ''}" placeholder="https://akio-finance-sign.<akun>.workers.dev/sign">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="handleSaveFinanceSignUrl()">💾 Simpan</button>
+            </div>
+            <div style="font-size:0.72rem; color:var(--text-muted); margin-top:0.4rem; line-height:1.4;">
+              Hanya diisi jika nota dibuat dari GitHub Pages. Kata sandi kunci tetap diminta setiap kali, tidak disimpan permanen.
+            </div>
+          </div>
           <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
             <button type="button" class="btn btn-primary btn-sm" onclick="handleFinanceKeyUnlock()">🔓 Buka kunci</button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="handleFinanceKeyChangePassword()">🔑 Ganti kata sandi</button>
@@ -286,6 +296,20 @@ async function handleFinanceKeyExport() {
     alert('Kunci terenkripsi diunduh. Simpan di flashdisk, dan simpan kata sandinya di tempat terpisah.');
   } catch (e) {
     alert('⚠️ Gagal mengekspor kunci: ' + e.message);
+  }
+}
+
+function handleSaveFinanceSignUrl() {
+  const input = document.getElementById('finance-sign-url');
+  if (!input) return;
+  const url = String(input.value || '').trim();
+  if (url) {
+    localStorage.setItem('finance_sign_url', url);
+    try { sessionStorage.removeItem('akioFinance.remotePass'); } catch (e) {}
+    alert('URL Worker penandatanganan disimpan di perangkat ini.');
+  } else {
+    localStorage.removeItem('finance_sign_url');
+    alert('URL Worker dihapus. Halaman publik tidak bisa menandatangani nota.');
   }
 }
 

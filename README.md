@@ -25,7 +25,7 @@ PIN **tidak** ditanam di kode dan **tidak** ikut ke GitHub — PIN hanya tersimp
 ## Verifikasi QR nota (anti-palsu)
 
 - Nota A4 dan nota hutang memakai tanda tangan **ECDSA P-256 / SHA-256**.
-- Kunci privat **hanya ada di komputer toko**, tersimpan terenkripsi di `web/data/signing-key.enc.json` (PBKDF2-SHA256 + AES-GCM). Kata sandinya harus diisi tiap kali aplikasi dibuka lewat menu **Pengaturan & Sync → Buka kunci**.
+- Kunci privat **tidak pernah masuk repo**. Di komputer toko tersimpan terenkripsi di `web/data/signing-key.enc.json` (PBKDF2-SHA256 + AES-GCM); jika memakai Worker, berkas yang sama disimpan sebagai secret `SIGNING_KEY_BOX`. Kata sandinya harus diisi tiap kali Menandatangani nota.
 - Jika menu Pengaturan sulit ditemukan, buka langsung **`http://localhost:8000/#pengaturan`**.
 - Setelah **Ganti kata sandi**, aplikasi mengunduh berkas kunci baru. Timpa `web/data/signing-key.enc.json` dengan berkas itu supaya kata sandi baru berlaku juga saat browser dibuka ulang atau dipakai komputer lain.
 - Jika kata sandi yang dulu berhasil tiba-tiba ditolak, buka **Pengaturan & Sync** lalu klik **↺ Muat ulang dari file**. Tombol ini membuang salinan kunci lama di browser dan membaca ulang `web/data/signing-key.enc.json`.
@@ -34,6 +34,23 @@ PIN **tidak** ditanam di kode dan **tidak** ikut ke GitHub — PIN hanya tersimp
 - QR lama bertanda 12 hex HMAC ditampilkan sebagai **FORMAT LAMA / tidak terverifikasi**, bukan "asli".
 - Verifikasi bersifat statis: tidak ada pengecekan duplikat atau pembatalan nomor secara global.
 
+## Buat QR nota dari halaman publik (Cloudflare Worker)
+
+GitHub Pages hanya statis dan tidak boleh menyimpan kunci privat. Jika nota harus dibuat dari domain publik, deploy Worker di folder `worker/`:
+
+```powershell
+npm install -g wrangler
+wrangler login
+cd worker
+wrangler secret put SIGNING_KEY_BOX
+# Tempel seluruh isi D:\Installer Mesin Styrofoam\FINANCE\web\data\signing-key.enc.json
+wrangler deploy
+```
+
+Salin URL deployment (misalnya `https://akio-finance-sign.<akun>.workers.dev/sign`) ke menu **Pengaturan & Sync → URL Worker Penandatanganan** di browser yang dipakai. Saat membuat nota, aplikasi akan meminta kata sandi kunci lalu mengirimkan data nota ke Worker untuk ditandatangani.
+
+Jangan pernah menyimpan kata sandi kunci sebagai secret Worker; kata sandi diminta per request dan hanya disimpan di `sessionStorage` browser.
+
 ## Catatan deploy
 
-`index.html`, `manifest.json`, aset CSS/JS, dan `sw.js` memakai cache buster `?v=45`. Saat mengubah file JS/CSS, naikkan nomor versi tersebut **dan** `CACHE_NAME` di `sw.js` agar browser tidak menyajikan versi lama.
+`index.html`, `manifest.json`, aset CSS/JS, dan `sw.js` memakai cache buster `?v=46`. Saat mengubah file JS/CSS, naikkan nomor versi tersebut **dan** `CACHE_NAME` di `sw.js` agar browser tidak menyajikan versi lama.

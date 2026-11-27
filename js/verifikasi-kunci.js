@@ -13,5 +13,6 @@ window.AKIO_FINANCE_VERIFY = {
     "y": "wysqsTmGhTPwTw0Lusksfk6CZoL0UTMK_6xTM7KeVa0",
     "crv": "P-256"
   },
-  "verifyUrl": "https://azrlock-maker.github.io/finance-akioflorist/"
+  "verifyUrl": "https://azrlock-maker.github.io/finance-akioflorist/",
+  "signUrl": ""
 };
